@@ -1,0 +1,11 @@
+sample_id,bam,bai,batch,sex,age,tumor_purity,blast_percentage,cytomolecular_subgroup,relapse_status,adi_quartile,timepoint,disease_stage
+SJBALL001,/path/to/SJBALL001.sorted.markdup.bam,/path/to/SJBALL001.sorted.markdup.bai,batch1,M,5,0.85,92,ETV6-RUNX1,no_relapse,Q2,diagnostic,standard_risk
+SJBALL002,/path/to/SJBALL002.sorted.markdup.bam,/path/to/SJBALL002.sorted.markdup.bai,batch1,F,8,0.72,87,Hyperdiploid,relapse,Q1,diagnostic,standard_risk
+SJBALL003,/path/to/SJBALL003.sorted.markdup.bam,/path/to/SJBALL003.sorted.markdup.bai,batch2,M,12,0.91,95,BCR-ABL1,no_relapse,Q3,diagnostic,high_risk
+SJBALL004,/path/to/SJBALL004.sorted.markdup.bam,/path/to/SJBALL004.sorted.markdup.bai,batch2,F,3,0.78,76,KMT2A,relapse,Q1,relapse,high_risk
+SJBALL005,/path/to/SJBALL005.sorted.markdup.bam,/path/to/SJBALL005.sorted.markdup.bai,batch1,M,7,0.65,88,Hypodiploid,no_relapse,Q4,diagnostic,very_high_risk
+SJBALL006,/path/to/SJBALL006.sorted.markdup.bam,/path/to/SJBALL006.sorted.markdup.bai,batch3,F,14,0.82,91,Ph-like,relapse,Q2,diagnostic,high_risk
+SJBALL007,/path/to/SJBALL007.sorted.markdup.bam,/path/to/SJBALL007.sorted.markdup.bai,batch3,M,2,0.88,94,DUX4,no_relapse,Q3,diagnostic,standard_risk
+SJBALL008,/path/to/SJBALL008.sorted.markdup.bam,/path/to/SJBALL008.sorted.markdup.bai,batch1,F,6,0.73,83,iAMP21,no_relapse,Q1,diagnostic,high_risk
+SJBALL009,/path/to/SJBALL009.sorted.markdup.bam,/path/to/SJBALL009.sorted.markdup.bai,batch2,M,9,0.90,96,TCF3-PBX1,relapse,Q2,relapse,standard_risk
+SJBALL010,/path/to/SJBALL010.sorted.markdup.bam,/path/to/SJBALL010.sorted.markdup.bai,batch2,F,4,0.67,79,PAX5alt,no_relapse,Q4,diagnostic,standard_risk

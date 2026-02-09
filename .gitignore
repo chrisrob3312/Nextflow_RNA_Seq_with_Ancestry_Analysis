@@ -1,0 +1,56 @@
+# Nextflow
+work/
+.nextflow/
+.nextflow.log*
+results/
+output/
+trace/
+timeline/
+report/
+dag/
+
+# Data
+data/raw/
+data/references/
+*.bam
+*.bai
+*.fastq.gz
+*.fq.gz
+*.fa
+*.fa.fai
+*.dict
+*.gtf
+*.bed
+
+# R
+.Rhistory
+.RData
+.Rproj.user/
+*.Rproj
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Singularity images
+*.sif
+*.img
+
+# Credentials / secrets
+.env
+credentials*
+*.key

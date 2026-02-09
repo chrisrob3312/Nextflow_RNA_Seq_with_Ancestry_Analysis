@@ -1,0 +1,63 @@
+[
+    {
+        "name": "relapse_vs_no_relapse",
+        "variable": "relapse_status",
+        "type": "categorical",
+        "reference": "no_relapse",
+        "target": "relapse",
+        "description": "Differential expression: relapse vs. non-relapse samples"
+    },
+    {
+        "name": "adi_q1_vs_rest",
+        "variable": "adi_quartile",
+        "type": "categorical",
+        "reference": "rest",
+        "target": "Q1",
+        "description": "Area Deprivation Index lowest quartile vs. all others"
+    },
+    {
+        "name": "pct_african_continuous",
+        "variable": "pct_african",
+        "type": "continuous",
+        "description": "Continuous African ancestry proportion (from GRAF/ancestry inference)"
+    },
+    {
+        "name": "pct_amerindigenous_continuous",
+        "variable": "pct_amerindigenous",
+        "type": "continuous",
+        "description": "Continuous Amerindigenous ancestry proportion"
+    },
+    {
+        "name": "pct_east_asian_continuous",
+        "variable": "pct_east_asian",
+        "type": "continuous",
+        "description": "Continuous East Asian ancestry proportion"
+    },
+    {
+        "name": "pct_south_asian_continuous",
+        "variable": "pct_south_asian",
+        "type": "continuous",
+        "description": "Continuous South Asian ancestry proportion"
+    },
+    {
+        "name": "pct_european_continuous",
+        "variable": "pct_european",
+        "type": "continuous",
+        "description": "Continuous European ancestry proportion"
+    },
+    {
+        "name": "graf_category_vs_EUR",
+        "variable": "graf_category",
+        "type": "categorical_multi",
+        "reference": "EUR",
+        "description": "GRAF ancestry categories (AFR_AM, LA1, LA2, EAS, SAS) each vs. EUR reference"
+    },
+    {
+        "name": "timepoint_relapse_vs_diagnostic",
+        "variable": "timepoint",
+        "type": "categorical",
+        "reference": "diagnostic",
+        "target": "relapse",
+        "description": "Relapse timepoint vs. diagnostic samples (paired when available)"
+    }
+]
