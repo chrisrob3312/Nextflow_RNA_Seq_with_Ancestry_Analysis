@@ -1,17 +1,19 @@
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     IMMUNOGENOMICS Subworkflow
-    Immune deconvolution + ESTIMATE + Neoantigen prediction + TCR/BCR
+    Immune deconvolution + ESTIMATE + Neoantigen prediction
+    (pVACseq + NeoFuse + SNAF) + TCR/BCR
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
-include { IMMUNE_DECONVOLUTION } from '../../modules/local/immune_analysis/main'
-include { ESTIMATE_SCORES      } from '../../modules/local/immune_analysis/main'
-include { PVACSEQ              } from '../../modules/local/neoantigen/main'
-include { NEOFUSE              } from '../../modules/local/neoantigen/main'
-include { MERGE_NEOANTIGENS    } from '../../modules/local/neoantigen/main'
-include { TRUST4               } from '../../modules/local/tcr_repertoire/main'
-include { MERGE_TCR_REPORTS    } from '../../modules/local/tcr_repertoire/main'
+include { IMMUNE_DECONVOLUTION      } from '../../modules/local/immune_analysis/main'
+include { ESTIMATE_SCORES           } from '../../modules/local/immune_analysis/main'
+include { PVACSEQ                   } from '../../modules/local/neoantigen/main'
+include { NEOFUSE                   } from '../../modules/local/neoantigen/main'
+include { SNAF_SPLICING_NEOANTIGENS } from '../../modules/local/neoantigen/main'
+include { MERGE_NEOANTIGENS         } from '../../modules/local/neoantigen/main'
+include { TRUST4                    } from '../../modules/local/tcr_repertoire/main'
+include { MERGE_TCR_REPORTS         } from '../../modules/local/tcr_repertoire/main'
 
 workflow IMMUNOGENOMICS {
 
@@ -25,7 +27,8 @@ workflow IMMUNOGENOMICS {
     ch_metadata          // channel: val(metadata_list) collected
 
     main:
-    ch_versions = Channel.empty()
+    ch_versions  = Channel.empty()
+    ch_findings  = Channel.empty()
 
     // Build metadata file
     ch_metadata_file = ch_metadata
@@ -61,16 +64,17 @@ workflow IMMUNOGENOMICS {
                 [ meta, vcf, tbi, hla ]
             }
 
-        if (params.neoantigen_tool == 'pvacseq' || params.neoantigen_tool == 'both') {
+        if (params.neoantigen_tool in ['pvacseq', 'both', 'all']) {
             PVACSEQ(
                 ch_vcf_hla.map{ meta, vcf, tbi, hla -> [ meta, vcf, tbi ] },
                 ch_vcf_hla.map{ meta, vcf, tbi, hla -> [ meta, hla ] }
             )
             ch_versions = ch_versions.mix(PVACSEQ.out.versions.first())
+            ch_findings = ch_findings.mix(PVACSEQ.out.findings)
         }
 
         // Fusion neoantigens via NeoFuse
-        if (params.neoantigen_tool == 'neofuse' || params.neoantigen_tool == 'both') {
+        if (params.neoantigen_tool in ['neofuse', 'both', 'all']) {
             if (params.run_fusions) {
                 ch_fusion_hla = ch_fusions.join(ch_hla_types, by: [0])
                 NEOFUSE(
@@ -78,7 +82,21 @@ workflow IMMUNOGENOMICS {
                     ch_fusion_hla.map{ meta, fusions, hla -> [ meta, hla ] }
                 )
                 ch_versions = ch_versions.mix(NEOFUSE.out.versions.first())
+                ch_findings = ch_findings.mix(NEOFUSE.out.findings)
             }
+        }
+
+        // Splicing-derived neoantigens via SNAF
+        if (params.neoantigen_tool in ['snaf', 'all'] && params.snaf_db) {
+            ch_bam_hla = ch_bam_bai.join(ch_hla_types, by: [0])
+            SNAF_SPLICING_NEOANTIGENS(
+                ch_bam_hla.map{ meta, bam, bai, hla -> [ meta, bam, bai ] },
+                Channel.fromPath(params.gtf).first(),
+                ch_bam_hla.map{ meta, bam, bai, hla -> hla },
+                Channel.fromPath(params.snaf_db).first()
+            )
+            ch_versions = ch_versions.mix(SNAF_SPLICING_NEOANTIGENS.out.versions.first())
+            ch_findings = ch_findings.mix(SNAF_SPLICING_NEOANTIGENS.out.findings)
         }
     }
 
@@ -96,7 +114,8 @@ workflow IMMUNOGENOMICS {
     emit:
     immune_scores  = params.run_immune ? IMMUNE_DECONVOLUTION.out.all_scores : Channel.empty()
     estimate       = params.run_immune ? ESTIMATE_SCORES.out.scores : Channel.empty()
-    neoantigens    = params.run_neoantigen && params.run_variant_calling && params.run_hla && (params.neoantigen_tool == 'pvacseq' || params.neoantigen_tool == 'both') ? PVACSEQ.out.results : Channel.empty()
+    neoantigens    = params.run_neoantigen && params.run_variant_calling && params.run_hla && (params.neoantigen_tool in ['pvacseq', 'both', 'all']) ? PVACSEQ.out.results : Channel.empty()
     tcr_repertoire = params.run_tcr ? MERGE_TCR_REPORTS.out.summary : Channel.empty()
+    findings       = ch_findings
     versions       = ch_versions
 }

@@ -35,21 +35,27 @@ workflow PREPROCESSING {
     ch_versions = ch_versions.mix(DETECT_GENOME_BUILD.out.versions)
 
     // Liftover hg19 BAMs to hg38 if target genome is hg38
-    if (params.target_genome_build == 'hg38') {
+    if (params.target_genome_build == 'hg38' && params.chain_file) {
+        // DETECT_GENOME_BUILD outputs: [ meta, bam, bai, BUILD_env ]
+        // Branch based on detected build
         ch_needs_liftover = DETECT_GENOME_BUILD.out.bam_with_build
             .branch {
-                liftover: it[0].genome_build == 'hg19' || it[0].genome_build == 'GRCh37'
+                liftover: it[3] == 'hg19' || it[3] == 'GRCh37'
                 pass:     true
             }
 
+        // Extract meta/bam/bai for liftover (drop the build string)
+        ch_to_liftover = ch_needs_liftover.liftover.map { meta, bam, bai, build -> [ meta, bam, bai ] }
+        ch_pass_through = ch_needs_liftover.pass.map { meta, bam, bai, build -> [ meta, bam, bai ] }
+
         CROSSMAP_BAM(
-            ch_needs_liftover.liftover,
+            ch_to_liftover,
             ch_fasta,
-            params.chain_file ? Channel.fromPath(params.chain_file).collect() : Channel.empty()
+            Channel.fromPath(params.chain_file).collect()
         )
         ch_versions = ch_versions.mix(CROSSMAP_BAM.out.versions)
 
-        ch_bam_final = ch_needs_liftover.pass.mix(CROSSMAP_BAM.out.bam)
+        ch_bam_final = ch_pass_through.mix(CROSSMAP_BAM.out.bam)
     } else {
         ch_bam_final = ch_bam_bai
     }

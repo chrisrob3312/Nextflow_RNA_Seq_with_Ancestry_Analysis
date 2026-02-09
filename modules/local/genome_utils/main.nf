@@ -14,12 +14,11 @@ process DETECT_GENOME_BUILD {
     tuple val(meta), path(bam), path(bai)
 
     output:
-    tuple val(meta_updated), path(bam), path(bai), emit: bam_with_build
-    path "${meta.id}.genome_build.txt",            emit: build_info
-    path "versions.yml",                           emit: versions
+    tuple val(meta), path(bam), path(bai), env(BUILD), emit: bam_with_build
+    path "${meta.id}.genome_build.txt",                 emit: build_info
+    path "versions.yml",                                emit: versions
 
     script:
-    // Detect genome build from BAM header by checking chromosome naming and contig lengths
     """
     #!/bin/bash
     set -euo pipefail
@@ -30,17 +29,14 @@ process DETECT_GENOME_BUILD {
     samtools view -H ${bam} > header.txt
 
     # Check for chromosome naming conventions
-    # hg38/GRCh38: chr1 length = 248956422
-    # hg19/GRCh37: chr1 length = 249250621 (UCSC) or 1 length = 249250621 (Ensembl)
-
-    # Check if chromosomes use 'chr' prefix
     HAS_CHR=\$(grep -c '^@SQ.*SN:chr' header.txt || true)
     HAS_NOCHR=\$(grep -c '^@SQ.*SN:[0-9]' header.txt || true)
 
     # Get chr1/1 length
+    # hg38/GRCh38: chr1 = 248956422
+    # hg19/GRCh37: chr1 = 249250621
     CHR1_LEN=\$(grep -P '^@SQ\\tSN:(chr)?1\\t' header.txt | grep -oP 'LN:\\K[0-9]+' || echo "0")
 
-    # GRCh38 chr1 = 248956422, GRCh37 chr1 = 249250621
     if [ "\${CHR1_LEN}" -eq 248956422 ]; then
         BUILD="hg38"
     elif [ "\${CHR1_LEN}" -eq 249250621 ]; then
@@ -50,7 +46,7 @@ process DETECT_GENOME_BUILD {
             BUILD="GRCh37"
         fi
     else
-        # Fallback: check for known GRCh38 assembly identifiers in header
+        # Fallback: check for known assembly identifiers in header
         if grep -q 'GRCh38\\|hg38\\|GCA_000001405.15' header.txt; then
             BUILD="hg38"
         elif grep -q 'GRCh37\\|hg19\\|GCA_000001405.1[^5]' header.txt; then
@@ -58,7 +54,7 @@ process DETECT_GENOME_BUILD {
         fi
     fi
 
-    # Also check for chr prefix convention
+    # Chromosome style
     if [ "\${HAS_CHR}" -gt 0 ]; then
         CHR_STYLE="UCSC"
     elif [ "\${HAS_NOCHR}" -gt 0 ]; then
@@ -70,8 +66,7 @@ process DETECT_GENOME_BUILD {
     echo -e "sample_id\\tgenome_build\\tchr_style\\tchr1_length" > ${meta.id}.genome_build.txt
     echo -e "${meta.id}\\t\${BUILD}\\t\${CHR_STYLE}\\t\${CHR1_LEN}" >> ${meta.id}.genome_build.txt
 
-    # Write build to a simple file for Nextflow to read
-    echo "\${BUILD}" > build.txt
+    # BUILD env variable is captured by Nextflow via env() output qualifier
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
@@ -79,18 +74,11 @@ process DETECT_GENOME_BUILD {
     END_VERSIONS
     """
 
-    // Update meta map with detected genome build
-    // This is done in the output mapping
-    ext {
-        // The meta_updated will be set by a custom mapping function
-    }
-
-    // Post-execution: parse build from output
     stub:
     """
+    BUILD="hg38"
     echo -e "sample_id\\tgenome_build\\tchr_style\\tchr1_length" > ${meta.id}.genome_build.txt
     echo -e "${meta.id}\\thg38\\tUCSC\\t248956422" >> ${meta.id}.genome_build.txt
-    echo "hg38" > build.txt
     touch versions.yml
     """
 }
@@ -112,9 +100,7 @@ process CROSSMAP_BAM {
 
     script:
     """
-    # CrossMap BAM liftover
-    # Note: CrossMap works with transcriptomic BAMs - it remaps coordinates
-    # based on chain file. Spliced alignments are handled correctly.
+    # CrossMap BAM liftover - handles spliced alignments correctly
     CrossMap.py bam \\
         ${chain_file} \\
         ${bam} \\
@@ -138,7 +124,6 @@ process CROSSMAP_BAM {
     echo -e "sample_id\\ttotal_reads\\tmapped_after_liftover\\tunmapped\\tpct_mapped" > ${meta.id}.liftover_stats.txt
     echo -e "${meta.id}\\t\${TOTAL}\\t\${MAPPED}\\t\${UNMAPPED}\\t\${PCT_MAPPED}" >> ${meta.id}.liftover_stats.txt
 
-    # Cleanup intermediate
     rm -f ${meta.id}.liftover.bam
 
     cat <<-END_VERSIONS > versions.yml

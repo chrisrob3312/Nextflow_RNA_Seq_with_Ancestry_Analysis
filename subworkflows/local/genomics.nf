@@ -1,14 +1,16 @@
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     GENOMICS Subworkflow
-    Ancestry inference + Variant calling + HLA typing + TMB
+    Ancestry inference (GRAF-anc + Somalier) + Variant calling + HLA typing + TMB
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
-include { SOMALIER_EXTRACT       } from '../../modules/local/ancestry/main'
-include { SOMALIER_ANCESTRY      } from '../../modules/local/ancestry/main'
 include { EXTRACT_GRAF_SNPS      } from '../../modules/local/ancestry/main'
+include { MERGE_GRAF_VCFS        } from '../../modules/local/ancestry/main'
+include { GRAFANC_RUN            } from '../../modules/local/ancestry/main'
 include { ANCESTRY_INFERENCE     } from '../../modules/local/ancestry/main'
+include { SOMALIER_EXTRACT       } from '../../modules/local/ancestry/main'
+include { SOMALIER_RELATE        } from '../../modules/local/ancestry/main'
 include { GATK_SPLITNCIGARREADS  } from '../../modules/local/variant_calling/main'
 include { GATK_BASERECALIBRATOR  } from '../../modules/local/variant_calling/main'
 include { GATK_APPLYBQSR         } from '../../modules/local/variant_calling/main'
@@ -32,22 +34,65 @@ workflow GENOMICS {
 
     main:
     ch_versions = Channel.empty()
+    ch_findings = Channel.empty()
 
     // ========================================
-    // ANCESTRY INFERENCE
+    // ANCESTRY INFERENCE (GRAF-anc + Somalier)
     // ========================================
     if (params.run_ancestry) {
-        // Extract GRAF ancestry-informative SNPs
+        // --- GRAF-anc: Extract 282K ancestry-informative SNPs ---
         EXTRACT_GRAF_SNPS(ch_bam_bai, ch_graf_snp_bed.first(), ch_fasta.first())
         ch_versions = ch_versions.mix(EXTRACT_GRAF_SNPS.out.versions.first())
 
-        // Run ancestry inference using allele counts
-        ANCESTRY_INFERENCE(
-            EXTRACT_GRAF_SNPS.out.allele_counts.map{ meta, f -> f }.collect(),
-            params.ancestry_reference_panel ? Channel.fromPath(params.ancestry_reference_panel).first() : Channel.empty(),
-            params.ancestry_reference_labels ? Channel.fromPath(params.ancestry_reference_labels).first() : Channel.empty()
+        // Merge per-sample VCFs into multi-sample VCF for GRAF-anc
+        MERGE_GRAF_VCFS(
+            EXTRACT_GRAF_SNPS.out.vcf.map{ meta, vcf -> vcf }.collect(),
+            EXTRACT_GRAF_SNPS.out.tbi.map{ meta, tbi -> tbi }.collect()
         )
+        ch_versions = ch_versions.mix(MERGE_GRAF_VCFS.out.versions)
+
+        // Run GRAF-anc on merged VCF
+        if (params.grafanc_data) {
+            GRAFANC_RUN(
+                MERGE_GRAF_VCFS.out.merged_vcf,
+                MERGE_GRAF_VCFS.out.merged_tbi,
+                Channel.fromPath(params.grafanc_data).first()
+            )
+            ch_versions = ch_versions.mix(GRAFANC_RUN.out.versions)
+
+            // Full ancestry inference with GRAF-anc results
+            ANCESTRY_INFERENCE(
+                GRAFANC_RUN.out.results,
+                EXTRACT_GRAF_SNPS.out.allele_counts.map{ meta, f -> f }.collect(),
+                params.ancestry_reference_panel ? Channel.fromPath(params.ancestry_reference_panel).first() : file('NO_REF_PANEL'),
+                params.ancestry_reference_labels ? Channel.fromPath(params.ancestry_reference_labels).first() : file('NO_REF_LABELS')
+            )
+        } else {
+            // Fallback: ancestry inference from allele counts only (no GRAF-anc binary)
+            ANCESTRY_INFERENCE(
+                file('NO_GRAFANC_RESULTS'),
+                EXTRACT_GRAF_SNPS.out.allele_counts.map{ meta, f -> f }.collect(),
+                params.ancestry_reference_panel ? Channel.fromPath(params.ancestry_reference_panel).first() : file('NO_REF_PANEL'),
+                params.ancestry_reference_labels ? Channel.fromPath(params.ancestry_reference_labels).first() : file('NO_REF_LABELS')
+            )
+        }
         ch_versions = ch_versions.mix(ANCESTRY_INFERENCE.out.versions)
+        ch_findings = ch_findings.mix(ANCESTRY_INFERENCE.out.findings)
+
+        // --- Somalier: Sample QC / relatedness checking ---
+        if (params.somalier_sites) {
+            SOMALIER_EXTRACT(
+                ch_bam_bai,
+                ch_fasta.first(),
+                Channel.fromPath(params.somalier_sites).first()
+            )
+            ch_versions = ch_versions.mix(SOMALIER_EXTRACT.out.versions.first())
+
+            SOMALIER_RELATE(
+                SOMALIER_EXTRACT.out.extracted.map{ meta, f -> f }.collect()
+            )
+            ch_versions = ch_versions.mix(SOMALIER_RELATE.out.versions)
+        }
     }
 
     // ========================================
@@ -69,7 +114,6 @@ workflow GENOMICS {
             )
             ch_versions = ch_versions.mix(GATK_BASERECALIBRATOR.out.versions.first())
 
-            // Combine BAM with recal table
             ch_bam_recal = GATK_SPLITNCIGARREADS.out.bam
                 .join(GATK_BASERECALIBRATOR.out.table)
 
@@ -136,9 +180,11 @@ workflow GENOMICS {
     emit:
     ancestry_proportions = params.run_ancestry ? ANCESTRY_INFERENCE.out.proportions : Channel.empty()
     ancestry_categories  = params.run_ancestry ? ANCESTRY_INFERENCE.out.categories : Channel.empty()
+    ancestry_pca         = params.run_ancestry ? ANCESTRY_INFERENCE.out.pca : Channel.empty()
     filtered_vcf         = params.run_variant_calling ? GATK_VARIANTFILTRATION.out.vcf : Channel.empty()
     tmb_scores           = params.run_variant_calling ? TMB_ESTIMATION.out.tmb : Channel.empty()
     hla_types            = params.run_hla && (params.hla_tool == 'arcashla' || params.hla_tool == 'both') ? ARCASHLA_GENOTYPE.out.genotype : Channel.empty()
     hla_merged           = params.run_hla && (params.hla_tool == 'arcashla' || params.hla_tool == 'both') ? ARCASHLA_MERGE.out.merged : Channel.empty()
+    findings             = ch_findings
     versions             = ch_versions
 }

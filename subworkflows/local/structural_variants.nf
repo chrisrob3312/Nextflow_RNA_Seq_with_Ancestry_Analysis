@@ -1,7 +1,8 @@
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     STRUCTURAL_VARIANTS Subworkflow
-    Differential splicing + Gene fusions + CNV inference
+    Differential splicing (rMATS + Leafcutter + SplAdder + Bisbee)
+    Gene fusions + CNV inference
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
@@ -9,6 +10,12 @@ include { RMATS                     } from '../../modules/local/splicing/main'
 include { LEAFCUTTER_JUNCTIONS      } from '../../modules/local/splicing/main'
 include { LEAFCUTTER_CLUSTER        } from '../../modules/local/splicing/main'
 include { LEAFCUTTER_DIFF_SPLICING  } from '../../modules/local/splicing/main'
+include { SPLADDER_BUILD            } from '../../modules/local/splicing/main'
+include { SPLADDER_TEST             } from '../../modules/local/splicing/main'
+include { BISBEE_PREP               } from '../../modules/local/splicing/main'
+include { BISBEE_DIFF               } from '../../modules/local/splicing/main'
+include { BISBEE_PROT               } from '../../modules/local/splicing/main'
+include { BISBEE_OUTLIER            } from '../../modules/local/splicing/main'
 include { FUSIONCATCHER             } from '../../modules/local/fusions/main'
 include { ARRIBA                    } from '../../modules/local/fusions/main'
 include { ARRIBA_VISUALIZATION      } from '../../modules/local/fusions/main'
@@ -24,13 +31,15 @@ workflow STRUCTURAL_VARIANTS {
     ch_metadata  // channel: val(metadata_list) collected
 
     main:
-    ch_versions = Channel.empty()
+    ch_versions  = Channel.empty()
+    ch_findings  = Channel.empty()
 
     // ========================================
     // DIFFERENTIAL SPLICING
     // ========================================
     if (params.run_splicing) {
-        if (params.splicing_tool == 'leafcutter' || params.splicing_tool == 'both') {
+        // --- Leafcutter ---
+        if (params.splicing_tool in ['leafcutter', 'both', 'all']) {
             LEAFCUTTER_JUNCTIONS(ch_bam_bai)
             LEAFCUTTER_CLUSTER(
                 LEAFCUTTER_JUNCTIONS.out.junctions.map{ meta, junc -> junc }.collect()
@@ -38,8 +47,31 @@ workflow STRUCTURAL_VARIANTS {
             ch_versions = ch_versions.mix(LEAFCUTTER_JUNCTIONS.out.versions.first())
         }
 
+        // --- rMATS ---
         // rMATS requires group comparison BAM lists - handled by contrast definitions
-        // The R script will generate BAM lists per contrast from metadata
+        // The contrast-specific BAM lists are generated from metadata
+
+        // --- SplAdder + Bisbee ---
+        if (params.splicing_tool in ['spladder', 'bisbee', 'all']) {
+            // Collect all BAMs and BAIs for SplAdder graph building
+            ch_all_bams = ch_bam_bai.map{ meta, bam, bai -> bam }.collect()
+            ch_all_bais = ch_bam_bai.map{ meta, bam, bai -> bai }.collect()
+
+            SPLADDER_BUILD(
+                ch_all_bams,
+                ch_all_bais,
+                ch_gtf.first()
+            )
+            ch_versions = ch_versions.mix(SPLADDER_BUILD.out.versions)
+
+            // Prepare Bisbee input from SplAdder counts
+            BISBEE_PREP(SPLADDER_BUILD.out.graph)
+
+            // Bisbee outlier detection (runs on all samples, no contrast needed)
+            BISBEE_OUTLIER(BISBEE_PREP.out.prepped)
+            ch_findings = ch_findings.mix(BISBEE_OUTLIER.out.findings)
+            ch_versions = ch_versions.mix(BISBEE_OUTLIER.out.versions)
+        }
     }
 
     // ========================================
@@ -47,8 +79,8 @@ workflow STRUCTURAL_VARIANTS {
     // ========================================
     if (params.run_fusions) {
         if (params.fusion_tool == 'arriba' || params.fusion_tool == 'both') {
-            def ch_blacklist    = params.arriba_blacklist ? Channel.fromPath(params.arriba_blacklist).first() : file('NO_BLACKLIST')
-            def ch_known        = params.arriba_known_fusions ? Channel.fromPath(params.arriba_known_fusions).first() : file('NO_KNOWN')
+            def ch_blacklist = params.arriba_blacklist ? Channel.fromPath(params.arriba_blacklist).first() : file('NO_BLACKLIST')
+            def ch_known     = params.arriba_known_fusions ? Channel.fromPath(params.arriba_known_fusions).first() : file('NO_KNOWN')
 
             ARRIBA(ch_bam_bai, ch_fasta.first(), ch_gtf.first(), ch_blacklist, ch_known)
             ch_versions = ch_versions.mix(ARRIBA.out.versions.first())
@@ -79,7 +111,6 @@ workflow STRUCTURAL_VARIANTS {
     // ========================================
     if (params.run_cnv_inference) {
         if (params.cnv_gene_order_file) {
-            // InferCNV needs a gene order file and reference/observation annotations
             INFERCNV(
                 Channel.empty(),  // Count matrix fed separately
                 Channel.fromPath(params.cnv_gene_order_file).first(),
@@ -90,8 +121,11 @@ workflow STRUCTURAL_VARIANTS {
     }
 
     emit:
-    splicing_results = params.run_splicing && (params.splicing_tool == 'leafcutter' || params.splicing_tool == 'both') ? LEAFCUTTER_CLUSTER.out.counts : Channel.empty()
+    splicing_results = params.run_splicing && (params.splicing_tool in ['leafcutter', 'both', 'all']) ? LEAFCUTTER_CLUSTER.out.counts : Channel.empty()
+    spladder_results = params.run_splicing && (params.splicing_tool in ['spladder', 'bisbee', 'all']) ? SPLADDER_BUILD.out.graph : Channel.empty()
+    bisbee_input     = params.run_splicing && (params.splicing_tool in ['spladder', 'bisbee', 'all']) ? BISBEE_PREP.out.prepped : Channel.empty()
     fusion_results   = params.run_fusions && (params.fusion_tool == 'arriba' || params.fusion_tool == 'both') ? ARRIBA.out.fusions : Channel.empty()
     cnv_results      = params.run_cnv_inference && params.cnv_gene_order_file ? INFERCNV.out.results : Channel.empty()
+    findings         = ch_findings
     versions         = ch_versions
 }
