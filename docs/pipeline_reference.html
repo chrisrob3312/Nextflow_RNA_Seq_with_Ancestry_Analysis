@@ -6,21 +6,21 @@
 <title>Cancer RNA-Seq Pipeline Reference</title>
 <style>
   :root {
-    --bg: #0f172a;
-    --card: #1e293b;
-    --card-hover: #273548;
-    --border: #334155;
-    --accent: #38bdf8;
-    --accent2: #818cf8;
-    --accent3: #a78bfa;
-    --green: #34d399;
-    --amber: #fbbf24;
-    --rose: #fb7185;
-    --teal: #2dd4bf;
-    --orange: #fb923c;
-    --text: #e2e8f0;
-    --text-dim: #94a3b8;
-    --text-bright: #f1f5f9;
+    --bg: #f8fafc;
+    --card: #ffffff;
+    --card-hover: #f1f5f9;
+    --border: #e2e8f0;
+    --accent: #0369a1;
+    --accent2: #4f46e5;
+    --accent3: #7c3aed;
+    --green: #059669;
+    --amber: #d97706;
+    --rose: #e11d48;
+    --teal: #0d9488;
+    --orange: #ea580c;
+    --text: #334155;
+    --text-dim: #64748b;
+    --text-bright: #0f172a;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -31,7 +31,7 @@
     padding: 0;
   }
   .hero {
-    background: linear-gradient(135deg, #1e1b4b 0%, #0f172a 50%, #0c1631 100%);
+    background: linear-gradient(135deg, #e0e7ff 0%, #f0f9ff 50%, #ecfdf5 100%);
     border-bottom: 1px solid var(--border);
     padding: 3rem 2rem 2rem;
     text-align: center;
@@ -114,7 +114,8 @@
     transition: border-color 0.2s, transform 0.15s;
     cursor: default;
   }
-  .flow-box:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .flow-box { box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+  .flow-box:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: 0 3px 10px rgba(0,0,0,0.08); }
   .flow-box .flow-label {
     font-size: 0.78rem;
     font-weight: 600;
@@ -192,13 +193,13 @@
     text-transform: uppercase;
     letter-spacing: 0.05em;
   }
-  .sw-badge.pre { background: rgba(52,211,153,0.15); color: var(--green); }
-  .sw-badge.gen { background: rgba(129,140,248,0.15); color: var(--accent2); }
-  .sw-badge.expr { background: rgba(251,191,36,0.15); color: var(--amber); }
-  .sw-badge.str { background: rgba(251,113,133,0.15); color: var(--rose); }
-  .sw-badge.imm { background: rgba(45,212,191,0.15); color: var(--teal); }
-  .sw-badge.clin { background: rgba(249,115,22,0.15); color: var(--orange); }
-  .sw-badge.rep { background: rgba(167,139,250,0.15); color: var(--accent3); }
+  .sw-badge.pre { background: rgba(5,150,105,0.1); color: var(--green); }
+  .sw-badge.gen { background: rgba(79,70,229,0.1); color: var(--accent2); }
+  .sw-badge.expr { background: rgba(217,119,6,0.1); color: var(--amber); }
+  .sw-badge.str { background: rgba(225,29,72,0.1); color: var(--rose); }
+  .sw-badge.imm { background: rgba(13,148,136,0.1); color: var(--teal); }
+  .sw-badge.clin { background: rgba(234,88,12,0.1); color: var(--orange); }
+  .sw-badge.rep { background: rgba(124,58,237,0.1); color: var(--accent3); }
   .subworkflow-header h2 { font-size: 1.3rem; color: var(--text-bright); }
 
   .module-card {
@@ -209,7 +210,8 @@
     margin-bottom: 1rem;
     transition: border-color 0.2s;
   }
-  .module-card:hover { border-color: var(--accent); }
+  .module-card { box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+  .module-card:hover { border-color: var(--accent); box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
   .module-card h3 {
     font-size: 1rem;
     color: var(--accent);
@@ -217,7 +219,7 @@
     font-family: 'JetBrains Mono', 'Fira Code', monospace;
   }
   .module-card .question {
-    background: rgba(56,189,248,0.08);
+    background: rgba(3,105,161,0.06);
     border-left: 3px solid var(--accent);
     padding: 0.5rem 0.8rem;
     margin: 0.5rem 0;
@@ -238,7 +240,7 @@
     margin-top: 0.7rem;
   }
   .detail-box {
-    background: rgba(15,23,42,0.5);
+    background: #f1f5f9;
     border-radius: 6px;
     padding: 0.5rem 0.7rem;
   }
@@ -255,7 +257,7 @@
   }
   .tool-tag {
     display: inline-block;
-    background: rgba(56,189,248,0.1);
+    background: rgba(3,105,161,0.08);
     color: var(--accent);
     padding: 0.1rem 0.4rem;
     border-radius: 4px;
@@ -293,7 +295,7 @@
   }
   .sample-table td {
     padding: 0.4rem 0.6rem;
-    border-bottom: 1px solid rgba(51,65,85,0.4);
+    border-bottom: 1px solid rgba(226,232,240,0.8);
     font-family: monospace;
     font-size: 0.8rem;
   }
