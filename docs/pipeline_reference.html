@@ -1,0 +1,942 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cancer RNA-Seq Pipeline Reference</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --card: #1e293b;
+    --card-hover: #273548;
+    --border: #334155;
+    --accent: #38bdf8;
+    --accent2: #818cf8;
+    --accent3: #a78bfa;
+    --green: #34d399;
+    --amber: #fbbf24;
+    --rose: #fb7185;
+    --teal: #2dd4bf;
+    --orange: #fb923c;
+    --text: #e2e8f0;
+    --text-dim: #94a3b8;
+    --text-bright: #f1f5f9;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    padding: 0;
+  }
+  .hero {
+    background: linear-gradient(135deg, #1e1b4b 0%, #0f172a 50%, #0c1631 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 3rem 2rem 2rem;
+    text-align: center;
+  }
+  .hero h1 {
+    font-size: 2.2rem;
+    font-weight: 700;
+    color: var(--text-bright);
+    margin-bottom: 0.5rem;
+  }
+  .hero .subtitle {
+    color: var(--accent);
+    font-size: 1.1rem;
+    font-weight: 500;
+  }
+  .hero .meta-info {
+    margin-top: 1rem;
+    color: var(--text-dim);
+    font-size: 0.85rem;
+  }
+  .hero .meta-info span { margin: 0 0.7rem; }
+  .container { max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem; }
+
+  /* --- NAV --- */
+  .toc {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem 2rem;
+    margin-bottom: 2.5rem;
+  }
+  .toc h2 { font-size: 1.1rem; color: var(--accent); margin-bottom: 0.8rem; }
+  .toc-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 0.4rem 1.5rem;
+  }
+  .toc a {
+    color: var(--text);
+    text-decoration: none;
+    font-size: 0.88rem;
+    padding: 0.2rem 0;
+    display: block;
+    transition: color 0.15s;
+  }
+  .toc a:hover { color: var(--accent); }
+  .toc a .num { color: var(--text-dim); margin-right: 0.3rem; font-size: 0.8rem; }
+
+  /* --- FLOWCHART --- */
+  .flow-section { margin-bottom: 2.5rem; }
+  .flow-section h2 {
+    font-size: 1.3rem;
+    color: var(--accent);
+    margin-bottom: 1.2rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .flowchart {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+  }
+  .flow-row {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 1rem;
+    width: 100%;
+  }
+  .flow-box {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0.8rem 1.2rem;
+    text-align: center;
+    min-width: 150px;
+    flex: 1;
+    max-width: 200px;
+    transition: border-color 0.2s, transform 0.15s;
+    cursor: default;
+  }
+  .flow-box:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .flow-box .flow-label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--text-bright);
+  }
+  .flow-box .flow-sub {
+    font-size: 0.68rem;
+    color: var(--text-dim);
+    margin-top: 0.2rem;
+  }
+  .flow-box.preprocessing { border-left: 3px solid var(--green); }
+  .flow-box.genomics { border-left: 3px solid var(--accent2); }
+  .flow-box.expression { border-left: 3px solid var(--amber); }
+  .flow-box.structural { border-left: 3px solid var(--rose); }
+  .flow-box.immuno { border-left: 3px solid var(--teal); }
+  .flow-box.clinical { border-left: 3px solid var(--orange); }
+  .flow-box.reporting { border-left: 3px solid var(--accent3); }
+
+  .flow-arrow {
+    font-size: 1.5rem;
+    color: var(--text-dim);
+    padding: 0.3rem 0;
+    text-align: center;
+  }
+  .flow-arrow-h {
+    font-size: 1rem;
+    color: var(--text-dim);
+    display: flex;
+    align-items: center;
+  }
+  .flow-split {
+    display: flex;
+    width: 100%;
+    gap: 1rem;
+    justify-content: center;
+  }
+  .flow-branch {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 1;
+    max-width: 250px;
+    gap: 0.5rem;
+  }
+  .flow-branch-label {
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    font-style: italic;
+  }
+  .flow-merge-line {
+    width: 80%;
+    height: 1px;
+    background: var(--border);
+    margin: 0.5rem auto;
+  }
+
+  /* --- MODULE SECTIONS --- */
+  .subworkflow-section {
+    margin-bottom: 3rem;
+  }
+  .subworkflow-header {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    margin-bottom: 1.5rem;
+    padding-bottom: 0.6rem;
+    border-bottom: 2px solid var(--border);
+  }
+  .sw-badge {
+    display: inline-block;
+    padding: 0.25rem 0.7rem;
+    border-radius: 6px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .sw-badge.pre { background: rgba(52,211,153,0.15); color: var(--green); }
+  .sw-badge.gen { background: rgba(129,140,248,0.15); color: var(--accent2); }
+  .sw-badge.expr { background: rgba(251,191,36,0.15); color: var(--amber); }
+  .sw-badge.str { background: rgba(251,113,133,0.15); color: var(--rose); }
+  .sw-badge.imm { background: rgba(45,212,191,0.15); color: var(--teal); }
+  .sw-badge.clin { background: rgba(249,115,22,0.15); color: var(--orange); }
+  .sw-badge.rep { background: rgba(167,139,250,0.15); color: var(--accent3); }
+  .subworkflow-header h2 { font-size: 1.3rem; color: var(--text-bright); }
+
+  .module-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.3rem 1.5rem;
+    margin-bottom: 1rem;
+    transition: border-color 0.2s;
+  }
+  .module-card:hover { border-color: var(--accent); }
+  .module-card h3 {
+    font-size: 1rem;
+    color: var(--accent);
+    margin-bottom: 0.5rem;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  }
+  .module-card .question {
+    background: rgba(56,189,248,0.08);
+    border-left: 3px solid var(--accent);
+    padding: 0.5rem 0.8rem;
+    margin: 0.5rem 0;
+    border-radius: 0 6px 6px 0;
+    font-size: 0.88rem;
+    color: var(--text-bright);
+    font-style: italic;
+  }
+  .module-card .desc {
+    font-size: 0.88rem;
+    color: var(--text);
+    margin-bottom: 0.5rem;
+  }
+  .module-card .detail-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.6rem;
+    margin-top: 0.7rem;
+  }
+  .detail-box {
+    background: rgba(15,23,42,0.5);
+    border-radius: 6px;
+    padding: 0.5rem 0.7rem;
+  }
+  .detail-box .detail-label {
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.2rem;
+  }
+  .detail-box .detail-val {
+    font-size: 0.82rem;
+    color: var(--text);
+  }
+  .tool-tag {
+    display: inline-block;
+    background: rgba(56,189,248,0.1);
+    color: var(--accent);
+    padding: 0.1rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    margin: 0.1rem 0.15rem;
+    font-family: monospace;
+  }
+
+  /* --- INPUT SECTION --- */
+  .input-section {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 2.5rem;
+  }
+  .input-section h2 {
+    font-size: 1.1rem;
+    color: var(--accent);
+    margin-bottom: 1rem;
+  }
+  .sample-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.82rem;
+  }
+  .sample-table th {
+    text-align: left;
+    padding: 0.4rem 0.6rem;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-dim);
+    font-weight: 600;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+  }
+  .sample-table td {
+    padding: 0.4rem 0.6rem;
+    border-bottom: 1px solid rgba(51,65,85,0.4);
+    font-family: monospace;
+    font-size: 0.8rem;
+  }
+
+  /* --- FOOTER --- */
+  .footer {
+    text-align: center;
+    padding: 2rem;
+    color: var(--text-dim);
+    font-size: 0.8rem;
+    border-top: 1px solid var(--border);
+    margin-top: 2rem;
+  }
+
+  @media (max-width: 700px) {
+    .hero h1 { font-size: 1.5rem; }
+    .module-card .detail-grid { grid-template-columns: 1fr; }
+    .toc-grid { grid-template-columns: 1fr; }
+    .flow-row { flex-direction: column; align-items: center; }
+    .flow-split { flex-direction: column; align-items: center; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ============================= HERO ============================= -->
+<div class="hero">
+  <h1>Cancer Bulk RNA-Seq Pipeline</h1>
+  <div class="subtitle">Nextflow DSL2 &middot; Pediatric B-ALL &middot; Ancestry-Integrated Analysis</div>
+  <div class="meta-info">
+    <span>Input: STAR-aligned BAM/BAI</span>
+    <span>&bull;</span>
+    <span>Genome: GRCh38 (hg19 auto-liftover)</span>
+    <span>&bull;</span>
+    <span>60+ Processes</span>
+    <span>&bull;</span>
+    <span>6 Subworkflows</span>
+  </div>
+</div>
+
+<div class="container">
+
+<!-- ============================= TOC ============================= -->
+<div class="toc">
+  <h2>Quick Navigation</h2>
+  <div class="toc-grid">
+    <a href="#overview"><span class="num">0</span> Pipeline Overview &amp; Flowchart</a>
+    <a href="#inputs"><span class="num">1</span> Input Samplesheet</a>
+    <a href="#preprocessing"><span class="num">2</span> Preprocessing</a>
+    <a href="#genomics"><span class="num">3</span> Genomics</a>
+    <a href="#expression"><span class="num">4</span> Expression Analysis</a>
+    <a href="#structural"><span class="num">5</span> Structural Variants</a>
+    <a href="#immunogenomics"><span class="num">6</span> Immunogenomics</a>
+    <a href="#clinical"><span class="num">7</span> Clinical Analysis</a>
+    <a href="#reporting"><span class="num">8</span> Reporting</a>
+    <a href="#versions"><span class="num">9</span> Two Pipeline Versions</a>
+  </div>
+</div>
+
+<!-- ============================= FLOWCHART ============================= -->
+<div class="flow-section" id="overview">
+  <h2>Pipeline Architecture</h2>
+  <div class="flowchart">
+
+    <!-- Input -->
+    <div class="flow-row">
+      <div class="flow-box preprocessing">
+        <div class="flow-label">Samplesheet CSV</div>
+        <div class="flow-sub">BAM + BAI + metadata per sample</div>
+      </div>
+    </div>
+    <div class="flow-arrow">&darr;</div>
+
+    <!-- Subworkflow 1: Preprocessing -->
+    <div class="flow-row">
+      <div class="flow-box preprocessing">
+        <div class="flow-label">1. PREPROCESSING</div>
+        <div class="flow-sub">Genome detect &rarr; QC &rarr; featureCounts &rarr; Normalize &rarr; Batch correct</div>
+      </div>
+    </div>
+    <div class="flow-arrow">&darr;</div>
+
+    <!-- Parallel split -->
+    <div style="display: flex; width: 100%; justify-content: center; gap: 1rem; flex-wrap: wrap;">
+      <div style="display: flex; flex-direction: column; align-items: center; flex: 1; max-width: 300px;">
+        <div class="flow-box genomics" style="width: 100%; max-width: 280px;">
+          <div class="flow-label">2. GENOMICS</div>
+          <div class="flow-sub">Ancestry (GRAF-anc + Somalier)<br>Variant calling (GATK)<br>CHASMplus &middot; MAF &middot; TMB<br>HLA typing (arcasHLA + OptiType)</div>
+        </div>
+      </div>
+      <div style="display: flex; flex-direction: column; align-items: center; flex: 1; max-width: 300px;">
+        <div class="flow-box expression" style="width: 100%; max-width: 280px;">
+          <div class="flow-label">3. EXPRESSION ANALYSIS</div>
+          <div class="flow-sub">DESeq2 + limma-voom<br>WGCNA co-expression networks<br>Pathway enrichment (GSEA/ORA)<br>GSVA gene set variation</div>
+        </div>
+      </div>
+      <div style="display: flex; flex-direction: column; align-items: center; flex: 1; max-width: 300px;">
+        <div class="flow-box structural" style="width: 100%; max-width: 280px;">
+          <div class="flow-label">4. STRUCTURAL VARIANTS</div>
+          <div class="flow-sub">Splicing (rMATS, Leafcutter, SplAdder, Bisbee)<br>Fusions (FusionCatcher + Arriba)<br>CNV inference (inferCNV)</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="flow-merge-line"></div>
+    <div class="flow-arrow">&darr; Results feed downstream</div>
+
+    <!-- Subworkflow 5+6 -->
+    <div style="display: flex; width: 100%; justify-content: center; gap: 1.5rem; flex-wrap: wrap;">
+      <div style="display: flex; flex-direction: column; align-items: center; flex: 1; max-width: 350px;">
+        <div class="flow-box immuno" style="width: 100%; max-width: 330px;">
+          <div class="flow-label">5. IMMUNOGENOMICS</div>
+          <div class="flow-sub">Immune deconvolution (6 methods) + ESTIMATE<br>Neoantigens: pVACseq + NeoFuse + SNAF<br>HERV/TE: Telescope + hervQuant<br>Burden stratification (MRD &times; relapse &times; ancestry)<br>TANTIGEN 2.0 cross-reference<br>TCR/BCR repertoire (TRUST4)</div>
+        </div>
+      </div>
+      <div style="display: flex; flex-direction: column; align-items: center; flex: 1; max-width: 350px;">
+        <div class="flow-box clinical" style="width: 100%; max-width: 330px;">
+          <div class="flow-label">6. CLINICAL ANALYSIS</div>
+          <div class="flow-sub">Drug sensitivity (GDSC models)<br>Pharmacogenomics (pgx variant annotation)<br>OCTAD (LINCS L1000 sRGES reversal)<br>PharmacoGx (GDSC2, CTRPv2, gCSI)<br>DREAM (network druggability + combos)<br>signatureSearch (CMAP + MOA enrichment)<br>Molecular subtyping</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="flow-merge-line"></div>
+    <div class="flow-arrow">&darr;</div>
+    <div class="flow-row">
+      <div class="flow-box reporting">
+        <div class="flow-label">MultiQC + Integrated Report</div>
+        <div class="flow-sub">Aggregate all findings</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================= INPUT ============================= -->
+<div class="input-section" id="inputs">
+  <h2>Input Samplesheet Format</h2>
+  <p style="color: var(--text-dim); font-size: 0.85rem; margin-bottom: 1rem;">
+    CSV file with one row per sample. BAMs should be STAR-aligned, coordinate-sorted, and duplicate-marked.
+  </p>
+  <table class="sample-table">
+    <tr>
+      <th>Column</th><th>Required</th><th>Description</th>
+    </tr>
+    <tr><td>sample_id</td><td>Yes</td><td>Unique sample identifier</td></tr>
+    <tr><td>bam</td><td>Yes</td><td>Path to aligned BAM file</td></tr>
+    <tr><td>bai</td><td>Yes</td><td>Path to BAM index</td></tr>
+    <tr><td>batch</td><td>Yes</td><td>Sequencing batch (for batch correction)</td></tr>
+    <tr><td>sex</td><td>Yes</td><td>M/F (used in DE covariates)</td></tr>
+    <tr><td>age</td><td>No</td><td>Patient age at diagnosis</td></tr>
+    <tr><td>tumor_purity</td><td>No</td><td>Estimated tumor purity (0&ndash;1)</td></tr>
+    <tr><td>blast_percentage</td><td>No</td><td>Leukemic blast percentage</td></tr>
+    <tr><td>cytomolecular_subgroup</td><td>No</td><td>e.g., ETV6-RUNX1, Hyperdiploid, KMT2A-r</td></tr>
+    <tr><td>relapse_status</td><td>No</td><td>relapse / no_relapse</td></tr>
+    <tr><td>mrd_status</td><td>No</td><td>positive / negative (MRD at day 29)</td></tr>
+    <tr><td>adi_quartile</td><td>No</td><td>Area Deprivation Index quartile (social determinant)</td></tr>
+    <tr><td>timepoint</td><td>No</td><td>diagnostic / relapse / end_of_induction</td></tr>
+    <tr><td>disease_stage</td><td>No</td><td>Disease stage descriptor</td></tr>
+  </table>
+</div>
+
+<!-- ============================= SUBWORKFLOW 1: PREPROCESSING ============================= -->
+<div class="subworkflow-section" id="preprocessing">
+  <div class="subworkflow-header">
+    <span class="sw-badge pre">Subworkflow 1</span>
+    <h2>Preprocessing</h2>
+  </div>
+
+  <div class="module-card">
+    <h3>DETECT_GENOME_BUILD &amp; CROSSMAP_BAM</h3>
+    <div class="question">Is each BAM aligned to hg19 or hg38? Do we need to liftover?</div>
+    <div class="desc">Reads BAM headers to detect genome assembly. Automatically lifts hg19 BAMs to hg38 using CrossMap so the entire cohort is on a unified reference.</div>
+    <div class="detail-grid">
+      <div class="detail-box"><div class="detail-label">Software</div><div class="detail-val"><span class="tool-tag">samtools</span><span class="tool-tag">CrossMap</span></div></div>
+      <div class="detail-box"><div class="detail-label">Output</div><div class="detail-val">hg38-aligned BAMs for all samples</div></div>
+    </div>
+  </div>
+
+  <div class="module-card">
+    <h3>QC: SAMTOOLS_FLAGSTAT / IDXSTATS / STATS</h3>
+    <div class="question">What is the quality of each BAM? Total reads, mapped %, duplicates?</div>
+    <div class="desc">Computes alignment statistics: total reads, mapped reads, properly paired reads, unmapped reads, duplicate rate, insert size distribution. Catches library failures and contamination early.</div>
+    <div class="detail-grid">
+      <div class="detail-box"><div class="detail-label">Software</div><div class="detail-val"><span class="tool-tag">samtools flagstat</span><span class="tool-tag">samtools idxstats</span><span class="tool-tag">samtools stats</span></div></div>
+      <div class="detail-box"><div class="detail-label">Output</div><div class="detail-val">Per-sample QC metrics &rarr; MultiQC</div></div>
+    </div>
+  </div>
+
+  <div class="module-card">
+    <h3>RSEQC_BAMSTAT / READDISTRIBUTION / INFEREXPERIMENT</h3>
+    <div class="question">How are reads distributed across gene features? What is the library strandedness?</div>
+    <div class="desc">RNA-seq-specific QC: reads mapping to exons vs. introns vs. intergenic regions, 5&prime;/3&prime; bias, junction saturation, and automatic strand detection (unstranded, fr-firststrand, fr-secondstrand).</div>
+    <div class="detail-grid">
+      <div class="detail-box"><div class="detail-label">Software</div><div class="detail-val"><span class="tool-tag">RSeQC</span></div></div>
+      <div class="detail-box"><div class="detail-label">Output</div><div class="detail-val">Read distribution, strandedness, gene body coverage</div></div>
+    </div>
+  </div>
+
+  <div class="module-card">
+    <h3>PICARD_COLLECTRNASEQMETRICS</h3>
+    <div class="question">What fraction of bases map to coding, UTR, intronic, and ribosomal regions?</div>
+    <div class="desc">Detailed RNA-seq metrics including coding/UTR/intronic/intergenic base fractions, median CV of coverage, and 5&prime;/3&prime; bias to assess library prep quality.</div>
+    <div class="detail-grid">
+      <div class="detail-box"><div class="detail-label">Software</div><div class="detail-val"><span class="tool-tag">Picard CollectRnaSeqMetrics</span></div></div>
+      <div class="detail-box"><div class="detail-label">Output</div><div class="detail-val">Per-sample RNA metrics &rarr; MultiQC</div></div>
+    </div>
+  </div>
+
+  <div class="module-card">
+    <h3>SUBREAD_FEATURECOUNTS &rarr; MERGE_COUNTS</h3>
+    <div class="question">How many reads map to each gene?</div>
+    <div class="desc">Quantifies gene-level expression by counting reads overlapping annotated gene features (GENCODE v44). Per-sample counts are merged into a single gene &times; sample count matrix for downstream analysis.</div>
+    <div class="detail-grid">
+      <div class="detail-box"><div class="detail-label">Software</div><div class="detail-val"><span class="tool-tag">Subread featureCounts</span></div></div>
+      <div class="detail-box"><div class="detail-label">Output</div><div class="detail-val">Raw count matrix (genes &times; samples TSV)</div></div>
+    </div>
+  </div>
+
+  <div class="module-card">
+    <h3>NORMALIZE_COUNTS &amp; BATCH_CORRECTION</h3>
+    <div class="question">Are expression values comparable across samples? Are there batch effects?</div>
+    <div class="desc">Applies VST (variance-stabilizing transformation) or rlog normalization via DESeq2, then optionally corrects for batch effects using ComBat-seq or SVA. Critical for multi-batch cohorts where technical variation can obscure biology.</div>
+    <div class="detail-grid">
+      <div class="detail-box"><div class="detail-label">Software</div><div class="detail-val"><span class="tool-tag">DESeq2</span><span class="tool-tag">sva</span><span class="tool-tag">ComBat-seq</span></div></div>
+      <div class="detail-box"><div class="detail-label">Output</div><div class="detail-val">Normalized + batch-corrected count matrix</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================= SUBWORKFLOW 2: GENOMICS ============================= -->
+<div class="subworkflow-section" id="genomics">
+  <div class="subworkflow-header">
+    <span class="sw-badge gen">Subworkflow 2</span>
+    <h2>Genomics</h2>
+  </div>
+
+  <div class="module-card">
+    <h3>EXTRACT_GRAF_SNPS &rarr; MERGE_GRAF_VCFS &rarr; GRAFANC_RUN &rarr; ANCESTRY_INFERENCE</h3>
+    <div class="question">What is each patient's genetic ancestry? Do ancestry proportions confound other results?</div>
+    <div class="desc">Extracts genotypes at 282K ancestry-informative SNP positions using bcftools mpileup from RNA-seq BAMs. GRAF-anc computes geometric genetic distances to continental reference populations, yielding barycentric ancestry coordinates (European, African, East Asian). Results are used as covariates in DE, and for stratifying neoantigen burden and drug sensitivity by ancestry.</div>
+    <div class="detail-grid">
+      <div class="detail-box"><div class="detail-label">Software</div><div class="detail-val"><span class="tool-tag">bcftools mpileup/call</span><span class="tool-tag">GRAF-anc (grafpop)</span><span class="tool-tag">R (PCA, ancestry assignment)</span></div></div>
+      <div class="detail-box"><div class="detail-label">Output</div><div class="detail-val">Ancestry proportions per sample, ancestry categories, PCA coordinates</div></div>
+    </div>
+  </div>
+
+  <div class="module-card">
+    <h3>SOMALIER_EXTRACT &rarr; SOMALIER_RELATE</h3>
+    <div class="question">Are there sample swaps, unexpected duplicates, or related individuals in the cohort?</div>
+    <div class="desc">Extracts ~17K coding-region SNPs per sample and computes pairwise relatedness coefficients. Detects sample swaps, mislabeled samples, and cryptic relatedness. Also provides sex verification and an independent ancestry check.</div>
+    <div class="detail-grid">
+      <div class="detail-box"><div class="detail-label">Software</div><div class="detail-val"><span class="tool-tag">Somalier</span></div></div>
+      <div class="detail-box"><div class="detail-label">Output</div><div class="detail-val">Relatedness matrix, sample-swap flags, sex concordance</div></div>
+    </div>
+  </div>
+
+  <div class="module-card">
+    <h3>GATK SplitNCigarReads &rarr; BQSR &rarr; HaplotypeCaller &rarr; VariantFiltration</h3>
+    <div class="question">What somatic and germline variants are present in each tumor RNA-seq sample?</div>
+    <div class="desc">GATK RNA-seq best practices: splits reads spanning splice junctions (SplitNCigarReads), recalibrates base quality scores (BQSR) using dbSNP, calls variants with HaplotypeCaller, and hard-filters for quality. Produces per-sample filtered VCFs used for neoantigen prediction and pharmacogenomic annotation.</div>
+    <div class="detail-grid">
+      <div class="detail-box"><div class="detail-label">Software</div><div class="detail-val"><span class="tool-tag">GATK 4.x</span></div></div>
+      <div class="detail-box"><div class="detail-label">Output</div><div class="detail-val">Per-sample filtered VCF + index</div></div>
+    </div>
+  </div>
+
+  <div class="module-card">
+    <h3>CHASMPLUS</h3>
+    <div class="question">Which variants are likely cancer driver mutations vs. passengers?</div>
+    <div class="desc">Runs OpenCRAVAT with the CHASMplus annotator to score each variant for driver vs. passenger probability. Uses a random-forest model trained on known oncogenic mutations. Variants with p &lt; 0.05 are flagged as predicted drivers.</div>
+    <div class="detail-grid">
+      <div class="detail-box"><div class="detail-label">Software</div><div class="detail-val"><span class="tool-tag">OpenCRAVAT</span><span class="tool-tag">CHASMplus</span></div></div>
+      <div class="detail-box"><div class="detail-label">Output</div><div class="detail-val">Driver/passenger classifications with p-values</div></div>
+    </div>
+  </div>
+
+  <div class="module-card">
+    <h3>CREATE_MAF</h3>
+    <div class="question">Can we visualize the mutational landscape with maftools (oncoplots, lollipop plots)?</div>
+    <div class="desc">Converts filtered VCFs to MAF (Mutation Annotation Format) using vcf2maf with VEP annotation. The MAF file is compatible with maftools for oncoplot generation, mutational signature analysis, and recurrence summaries.</div>
+    <div class="detail-grid">
+      <div class="detail-box"><div class="detail-label">Software</div><div class="detail-val"><span class="tool-tag">vcf2maf</span><span class="tool-tag">VEP</span></div></div>
+      <div class="detail-box"><div class="detail-label">Output</div><div class="detail-val">maftools-compatible MAF file</div></div>
+    </div>
+  </div>
+
+  <div class="module-card">
+    <h3>TMB_ESTIMATION</h3>
+    <div class="question">What is each sample's tumor mutational burden? Does higher TMB predict immunotherapy response?</div>
+    <div class="desc">Counts nonsynonymous mutations per megabase of coding sequence from filtered VCFs. TMB is a biomarker for checkpoint inhibitor response in some contexts and is correlated with neoantigen load.</div>
+    <div class="detail-grid">
+      <div class="detail-box"><div class="detail-label">Software</div><div class="detail-val"><span class="tool-tag">R (custom)</span></div></div>
+      <div class="detail-box"><div class="detail-label">Output</div><div class="detail-val">TMB scores per sample</div></div>
+    </div>
+  </div>
+
+  <div class="module-card">
+    <h3>ARCASHLA_EXTRACT / GENOTYPE / MERGE &amp; OPTITYPE</h3>
+    <div class="question">What HLA alleles does each patient carry? (Required for neoantigen binding prediction)</div>
+    <div class="desc">Types HLA class I (A, B, C) and class II (DPB1, DQB1, DQA1, DRB1) alleles directly from RNA-seq reads. arcasHLA extracts HLA-mapped reads and determines the most likely allele pair per locus. OptiType provides an independent class I prediction. HLA types feed into pVACseq for MHC binding affinity.</div>
+    <div class="detail-grid">
+      <div class="detail-box"><div class="detail-label">Software</div><div class="detail-val"><span class="tool-tag">arcasHLA</span><span class="tool-tag">OptiType</span></div></div>
+      <div class="detail-box"><div class="detail-label">Output</div><div class="detail-val">4-digit HLA allele calls per sample</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================= SUBWORKFLOW 3: EXPRESSION ============================= -->
+<div class="subworkflow-section" id="expression">
+  <div class="subworkflow-header">
+    <span class="sw-badge expr">Subworkflow 3</span>
+    <h2>Expression Analysis</h2>
+  </div>
+
+  <div class="module-card">
+    <h3>DESEQ2_DE &amp; LIMMA_VOOM_DE</h3>
+    <div class="question">Which genes are differentially expressed between conditions (e.g., relapse vs. non-relapse, by subtype)?</div>
+    <div class="desc">Runs two complementary DE methods. DESeq2 uses a negative binomial GLM with Wald test; limma-voom applies empirical Bayes moderated t-statistics after precision weight estimation. Both incorporate ancestry as a covariate (via the proportions from GRAF-anc) alongside batch, sex, age, and blast percentage. Contrasts are defined in a JSON file for flexible group comparisons.</div>
+    <div class="detail-grid">
+      <div class="detail-box"><div class="detail-label">Software</div><div class="detail-val"><span class="tool-tag">DESeq2</span><span class="tool-tag">limma-voom</span></div></div>
+      <div class="detail-box"><div class="detail-label">Output</div><div class="detail-val">DE result tables (log2FC, padj), volcano/MA plots</div></div>
+    </div>
+  </div>
+
+  <div class="module-card">
+    <h3>WGCNA_ANALYSIS</h3>
+    <div class="question">Are there co-expressed gene modules that correlate with clinical traits or ancestry?</div>
+    <div class="desc">Weighted Gene Co-expression Network Analysis identifies modules (clusters) of genes with correlated expression patterns. Each module is tested for association with clinical traits (relapse, MRD, subtype, ancestry) using Pearson correlation of module eigengenes. Hub genes within trait-associated modules become candidate biomarkers.</div>
+    <div class="detail-grid">
+      <div class="detail-box"><div class="detail-label">Software</div><div class="detail-val"><span class="tool-tag">WGCNA</span></div></div>
+      <div class="detail-box"><div class="detail-label">Output</div><div class="detail-val">Module assignments, trait correlations, hub gene lists</div></div>
+    </div>
+  </div>
+
+  <div class="module-card">
+    <h3>PATHWAY_ENRICHMENT</h3>
+    <div class="question">What biological pathways and processes are dysregulated?</div>
+    <div class="desc">Tests DE gene lists for enrichment in curated pathway databases: GO Biological Process, GO Molecular Function, KEGG, Reactome, Hallmark, and ImmuneSigDB. Uses both over-representation analysis (ORA, hypergeometric test) and gene set enrichment analysis (GSEA, ranked by DE statistics) for complementary perspectives.</div>
+    <div class="detail-grid">
+      <div class="detail-box"><div class="detail-label">Software</div><div class="detail-val"><span class="tool-tag">clusterProfiler</span><span class="tool-tag">fgsea</span><span class="tool-tag">msigdbr</span></div></div>
+      <div class="detail-box"><div class="detail-label">Output</div><div class="detail-val">Enrichment tables, dot plots, GSEA enrichment plots, network visualizations</div></div>
+    </div>
+  </div>
+
+  <div class="module-card">
+    <h3>GSVA_ANALYSIS</h3>
+    <div class="question">What is each sample's activity score for specific gene sets (e.g., Hallmark pathways)?</div>
+    <div class="desc">Gene Set Variation Analysis computes per-sample pathway activity scores in an unsupervised manner (no group labels needed). Useful for clustering samples by pathway activity, correlating pathway scores with clinical variables, and identifying patient-specific pathway dysregulation.</div>
+    <div class="detail-grid">
+      <div class="detail-box"><div class="detail-label">Software</div><div class="detail-val"><span class="tool-tag">GSVA</span></div></div>
+      <div class="detail-box"><div class="detail-label">Output</div><div class="detail-val">Per-sample pathway scores matrix</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================= SUBWORKFLOW 4: STRUCTURAL ============================= -->
+<div class="subworkflow-section" id="structural">
+  <div class="subworkflow-header">
+    <span class="sw-badge str">Subworkflow 4</span>
+    <h2>Structural Variants</h2>
+  </div>
+
+  <div class="module-card">
+    <h3>LEAFCUTTER (Junctions &rarr; Cluster &rarr; Diff Splicing)</h3>
+    <div class="question">Are there differentially used splice junctions between conditions?</div>
+    <div class="desc">Leafcutter identifies variable splicing events by clustering intron-spanning reads into "intron clusters" and testing for differential excision ratios between groups. Unlike exon-based methods, it discovers novel splice junctions without relying on transcript annotations.</div>
+    <div class="detail-grid">
+      <div class="detail-box"><div class="detail-label">Software</div><div class="detail-val"><span class="tool-tag">Leafcutter</span></div></div>
+      <div class="detail-box"><div class="detail-label">Output</div><div class="detail-val">Differentially spliced intron clusters, PSI changes</div></div>
+    </div>
+  </div>
+
+  <div class="module-card">
+    <h3>SPLADDER_BUILD &rarr; BISBEE (Prep / Diff / Prot / Outlier)</h3>
+    <div class="question">Which alternative splicing events create novel protein sequences (neojunctions)?</div>
+    <div class="desc">SplAdder builds augmented splice graphs from RNA-seq data, identifying exon skipping, intron retention, alternative 5&prime;/3&prime; splice sites, and novel exons. BISBEE extends this by translating splicing events to protein-level consequences and identifying patient-specific outlier splicing events (potential neoantigen sources).</div>
+    <div class="detail-grid">
+      <div class="detail-box"><div class="detail-label">Software</div><div class="detail-val"><span class="tool-tag">SplAdder</span><span class="tool-tag">BISBEE</span></div></div>
+      <div class="detail-box"><div class="detail-label">Output</div><div class="detail-val">Alternative splicing events, protein consequences, outlier events</div></div>
+    </div>
+  </div>
+
+  <div class="module-card">
+    <h3>FUSIONCATCHER &amp; ARRIBA (+ Visualization) &rarr; MERGE_FUSIONS</h3>
+    <div class="question">Which gene fusions are present? Are there known oncogenic fusions (e.g., ETV6-RUNX1, BCR-ABL)?</div>
+    <div class="desc">Two independent fusion callers for high sensitivity and specificity. FusionCatcher uses a database of known fusions and multiple alignment algorithms. Arriba is optimized for RNA-seq with visualization of chimeric read support across genomic coordinates. Results are merged and filtered by minimum supporting reads.</div>
+    <div class="detail-grid">
+      <div class="detail-box"><div class="detail-label">Software</div><div class="detail-val"><span class="tool-tag">FusionCatcher</span><span class="tool-tag">Arriba</span></div></div>
+      <div class="detail-box"><div class="detail-label">Output</div><div class="detail-val">Fusion calls per sample, circos-style visualizations, merged consensus list</div></div>
+    </div>
+  </div>
+
+  <div class="module-card">
+    <h3>INFERCNV</h3>
+    <div class="question">Are there large-scale copy number alterations visible from expression data?</div>
+    <div class="desc">Infers copy number variations from RNA-seq by comparing expression profiles of tumor samples against a reference (normal samples or average expression). Detects chromosomal gains, losses, and focal amplifications. Particularly useful in B-ALL for identifying hyperdiploidy, hypodiploidy, and iAMP21.</div>
+    <div class="detail-grid">
+      <div class="detail-box"><div class="detail-label">Software</div><div class="detail-val"><span class="tool-tag">inferCNV</span></div></div>
+      <div class="detail-box"><div class="detail-label">Output</div><div class="detail-val">CNV heatmaps, chromosome-level gain/loss calls</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================= SUBWORKFLOW 5: IMMUNOGENOMICS ============================= -->
+<div class="subworkflow-section" id="immunogenomics">
+  <div class="subworkflow-header">
+    <span class="sw-badge imm">Subworkflow 5</span>
+    <h2>Immunogenomics</h2>
+  </div>
+
+  <div class="module-card">
+    <h3>IMMUNE_DECONVOLUTION &amp; ESTIMATE_SCORES</h3>
+    <div class="question">What is the immune cell composition of each tumor? Is the microenvironment immunologically "hot" or "cold"?</div>
+    <div class="desc">Estimates immune cell type fractions using six complementary algorithms: CIBERSORT, MCP-counter, quanTIseq, TIMER, EPIC, and xCell. ESTIMATE separately scores immune activity, stromal content, and tumor purity. Together these reveal whether tumors are immune-infiltrated (potentially responsive to immunotherapy) or immune-desert.</div>
+    <div class="detail-grid">
+      <div class="detail-box"><div class="detail-label">Software</div><div class="detail-val"><span class="tool-tag">immunedeconv</span><span class="tool-tag">ESTIMATE</span></div></div>
+      <div class="detail-box"><div class="detail-label">Output</div><div class="detail-val">Immune cell fraction matrices, ESTIMATE scores, comparison plots</div></div>
+    </div>
+  </div>
+
+  <div class="module-card">
+    <h3>PVACSEQ</h3>
+    <div class="question">Which somatic mutations produce peptides that bind the patient's HLA alleles (SNV/indel neoantigens)?</div>
+    <div class="desc">Predicts MHC class I and class II binding affinity for all mutant peptides derived from somatic variants. Uses the patient's HLA alleles (from arcasHLA) and multiple prediction algorithms (NetMHCpan, MHCflurry). Filters by IC50 &lt; 500 nM and DAI (differential agretopicity index) to identify candidate neoantigens.</div>
+    <div class="detail-grid">
+      <div class="detail-box"><div class="detail-label">Software</div><div class="detail-val"><span class="tool-tag">pVACseq (pVACtools)</span></div></div>
+      <div class="detail-box"><div class="detail-label">Output</div><div class="detail-val">Ranked neoantigen candidates with binding affinity</div></div>
+    </div>
+  </div>
+
+  <div class="module-card">
+    <h3>NEOFUSE</h3>
+    <div class="question">Do any gene fusions produce novel peptides that are immunogenic?</div>
+    <div class="desc">Predicts neoantigens arising from fusion gene junctions. Translates the fusion junction in all reading frames, generates candidate peptides spanning the breakpoint, and predicts HLA binding affinity. Fusion-derived neoantigens are particularly relevant in B-ALL where fusions are driver events.</div>
+    <div class="detail-grid">
+      <div class="detail-box"><div class="detail-label">Software</div><div class="detail-val"><span class="tool-tag">NeoFuse</span></div></div>
+      <div class="detail-box"><div class="detail-label">Output</div><div class="detail-val">Fusion-derived neoantigen candidates</div></div>
+    </div>
+  </div>
+
+  <div class="module-card">
+    <h3>SNAF_SPLICING_NEOANTIGENS</h3>
+    <div class="question">Do aberrant splicing events produce novel peptides that could be immunogenic?</div>
+    <div class="desc">SNAF (Splicing Neo Antigen Finder) identifies neoantigens from alternative splicing events. Translates tumor-specific junctions, generates peptides, and predicts HLA binding. Splicing-derived neoantigens are a distinct class from SNV neoantigens and expand the targetable neoantigen repertoire.</div>
+    <div class="detail-grid">
+      <div class="detail-box"><div class="detail-label">Software</div><div class="detail-val"><span class="tool-tag">SNAF</span></div></div>
+      <div class="detail-box"><div class="detail-label">Output</div><div class="detail-val">Splicing-derived neoantigen candidates</div></div>
+    </div>
+  </div>
+
+  <div class="module-card">
+    <h3>TELESCOPE_HERV &amp; HERVQUANT</h3>
+    <div class="question">Are human endogenous retroviruses (HERVs) and transposable elements aberrantly expressed in tumors?</div>
+    <div class="desc">Telescope performs TE-aware read assignment to quantify expression of HERV and transposable element loci from RNA-seq. hervQuant provides a complementary quantification using a curated HERV reference. HERV-derived peptides represent a fourth class of tumor-associated antigens (alongside SNV, fusion, and splicing neoantigens) and have been linked to immune activation in some cancers.</div>
+    <div class="detail-grid">
+      <div class="detail-box"><div class="detail-label">Software</div><div class="detail-val"><span class="tool-tag">Telescope</span><span class="tool-tag">hervQuant</span></div></div>
+      <div class="detail-box"><div class="detail-label">Output</div><div class="detail-val">Per-locus HERV/TE expression counts</div></div>
+    </div>
+  </div>
+
+  <div class="module-card">
+    <h3>NEOANTIGEN_BURDEN_ANALYSIS</h3>
+    <div class="question">Does neoantigen burden differ by relapse, MRD status, or ancestry? Within MRD-negative patients, does relapse status correlate with neoantigen load or composition?</div>
+    <div class="desc">Aggregates neoantigens from all sources (SNV, fusion, splicing, HERV) per sample. Performs stratified comparisons: (1) relapse vs. non-relapse (Wilcoxon), (2) MRD+ vs. MRD&minus; (Wilcoxon), (3) ancestry groups (Kruskal-Wallis). Additionally, <strong>nested stratification within MRD-negative patients</strong>: tests relapse vs. non-relapse burden by neoantigen type, ancestry category within each relapse stratum (Kruskal-Wallis), and Spearman correlations between continuous ancestry proportions and neoantigen counts.</div>
+    <div class="detail-grid">
+      <div class="detail-box"><div class="detail-label">Software</div><div class="detail-val"><span class="tool-tag">R (data.table, ggplot2)</span></div></div>
+      <div class="detail-box"><div class="detail-label">Output</div><div class="detail-val">Burden tables, comparison statistics, boxplots (relapse, MRD, ancestry), nested MRD-neg strata plots</div></div>
+    </div>
+  </div>
+
+  <div class="module-card">
+    <h3>ANTIGEN_DB_CROSSREF</h3>
+    <div class="question">Do any predicted neoantigens match known cancer antigens (TANTIGEN 2.0)?</div>
+    <div class="desc">Cross-references all predicted neoantigens against a curated cancer antigen database. Hits represent peptides with prior evidence of immunogenicity, increasing confidence in their therapeutic potential.</div>
+    <div class="detail-grid">
+      <div class="detail-box"><div class="detail-label">Software</div><div class="detail-val"><span class="tool-tag">Python (pandas)</span></div></div>
+      <div class="detail-box"><div class="detail-label">Output</div><div class="detail-val">Matched neoantigen&ndash;known-antigen pairs, summary statistics</div></div>
+    </div>
+  </div>
+
+  <div class="module-card">
+    <h3>TRUST4 &rarr; MERGE_TCR_REPORTS</h3>
+    <div class="question">What TCR/BCR clonotypes are present in the tumor? Is there evidence of clonal T-cell expansion?</div>
+    <div class="desc">TRUST4 reconstructs T-cell receptor (TCR) and B-cell receptor (BCR) CDR3 sequences directly from RNA-seq reads (no dedicated TCR-seq needed). Clonotype diversity, clonal expansion, and dominant clone frequency can indicate adaptive immune responses against the tumor.</div>
+    <div class="detail-grid">
+      <div class="detail-box"><div class="detail-label">Software</div><div class="detail-val"><span class="tool-tag">TRUST4</span></div></div>
+      <div class="detail-box"><div class="detail-label">Output</div><div class="detail-val">CDR3 sequences, clonotype tables, diversity metrics</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================= SUBWORKFLOW 6: CLINICAL ============================= -->
+<div class="subworkflow-section" id="clinical">
+  <div class="subworkflow-header">
+    <span class="sw-badge clin">Subworkflow 6</span>
+    <h2>Clinical Analysis</h2>
+  </div>
+
+  <div class="module-card">
+    <h3>SENSITIVITY_ANALYSIS</h3>
+    <div class="question">Which drugs might each patient's tumor be sensitive to, based on expression-drug response models?</div>
+    <div class="desc">Predicts drug sensitivity using expression-based models trained on cancer cell line panels (GDSC). Ridge regression models relate gene expression to drug response (IC50/AUC), then predict each patient sample's sensitivity profile. Results are stratified by ancestry to detect population-level differences in predicted drug response.</div>
+    <div class="detail-grid">
+      <div class="detail-box"><div class="detail-label">Software</div><div class="detail-val"><span class="tool-tag">R (glmnet, pRRophetic)</span></div></div>
+      <div class="detail-box"><div class="detail-label">Output</div><div class="detail-val">Per-sample predicted drug sensitivity scores, ancestry-stratified comparisons</div></div>
+    </div>
+  </div>
+
+  <div class="module-card">
+    <h3>PHARMACOGENOMICS</h3>
+    <div class="question">Do patients carry pharmacogenomic variants that affect drug metabolism or efficacy?</div>
+    <div class="desc">Annotates variants from RNA-seq VCFs against pharmacogenomic databases (PharmGKB, CPIC). Identifies clinically actionable variants affecting drug metabolism (e.g., CYP2D6, TPMT, NUDT15) that may guide dose adjustments or drug selection in B-ALL treatment protocols.</div>
+    <div class="detail-grid">
+      <div class="detail-box"><div class="detail-label">Software</div><div class="detail-val"><span class="tool-tag">R (custom)</span></div></div>
+      <div class="detail-box"><div class="detail-label">Output</div><div class="detail-val">Pharmacogenomic variant annotations, clinical recommendations</div></div>
+    </div>
+  </div>
+
+  <div class="module-card">
+    <h3>OCTAD_ANALYSIS</h3>
+    <div class="question">Which existing drugs could reverse the disease gene expression signature?</div>
+    <div class="desc">Uses the OCTAD package to query the LINCS L1000 connectivity map with disease signatures derived from DE results. Computes sRGES (summarized Reversal Gene Expression Score) for ~20K drugs. Drugs with the most negative sRGES are predicted to reverse the disease expression phenotype &mdash; a computational drug repurposing approach.</div>
+    <div class="detail-grid">
+      <div class="detail-box"><div class="detail-label">Software</div><div class="detail-val"><span class="tool-tag">OCTAD</span><span class="tool-tag">LINCS L1000</span></div></div>
+      <div class="detail-box"><div class="detail-label">Output</div><div class="detail-val">Ranked drug candidates by sRGES, bar plots, recurrent hits across contrasts</div></div>
+    </div>
+  </div>
+
+  <div class="module-card">
+    <h3>PHARMACOGX_ANALYSIS</h3>
+    <div class="question">Can we predict per-patient drug sensitivity using multiple large-scale pharmacogenomic databases?</div>
+    <div class="desc">Downloads PharmacoSets from three databases (GDSC2, CTRPv2, gCSI) and trains ridge regression models for each drug using cell line expression and drug response data (AAC). Predicts drug sensitivity for each patient sample and tests for ancestry-associated differences using Kruskal-Wallis tests. Cross-database concordance increases confidence in predictions.</div>
+    <div class="detail-grid">
+      <div class="detail-box"><div class="detail-label">Software</div><div class="detail-val"><span class="tool-tag">PharmacoGx</span><span class="tool-tag">glmnet</span></div></div>
+      <div class="detail-box"><div class="detail-label">Output</div><div class="detail-val">Per-database drug sensitivity matrices, ancestry comparisons, heatmaps</div></div>
+    </div>
+  </div>
+
+  <div class="module-card">
+    <h3>DREAM_DRUGGABILITY</h3>
+    <div class="question">Which DE genes are most druggable based on their network connectivity? What drug combinations target complementary pathways?</div>
+    <div class="desc">Builds Pearson co-expression networks from DE genes using igraph, computes topology metrics (degree, betweenness, closeness, eigenvector centrality), and generates composite druggability scores. Uses Louvain community detection to identify pathway modules, then suggests drug combinations that target distinct modules for synergistic therapeutic coverage.</div>
+    <div class="detail-grid">
+      <div class="detail-box"><div class="detail-label">Software</div><div class="detail-val"><span class="tool-tag">igraph</span><span class="tool-tag">R (custom)</span></div></div>
+      <div class="detail-box"><div class="detail-label">Output</div><div class="detail-val">Druggability rankings, network plots, drug combination candidates</div></div>
+    </div>
+  </div>
+
+  <div class="module-card">
+    <h3>SIGNATURESEARCH_ANALYSIS</h3>
+    <div class="question">Which drugs in the LINCS L1000 database produce the opposite expression signature to our disease?</div>
+    <div class="desc">Uses the signatureSearch Bioconductor package with the CMAP (Connectivity Map) method to query LINCS L1000 locally. Ranks ~10K perturbagens by Normalized Connectivity Score (NCS). Adds Drug Set Enrichment Analysis (DSEA) to identify enriched mechanisms of action among top-ranked drugs, revealing actionable therapeutic classes rather than individual compounds.</div>
+    <div class="detail-grid">
+      <div class="detail-box"><div class="detail-label">Software</div><div class="detail-val"><span class="tool-tag">signatureSearch</span><span class="tool-tag">signatureSearchData</span></div></div>
+      <div class="detail-box"><div class="detail-label">Output</div><div class="detail-val">Drug rankings by NCS, MOA enrichment tables, dot plots</div></div>
+    </div>
+  </div>
+
+  <div class="module-card">
+    <h3>MOLECULAR_SUBTYPING</h3>
+    <div class="question">What molecular subtype does each sample belong to? Does expression-based classification agree with cytogenetics?</div>
+    <div class="desc">Classifies samples into molecular subtypes using expression-based signatures. For B-ALL, this includes cytomolecular groups (ETV6-RUNX1, Hyperdiploid, KMT2A-r, BCR-ABL1, Ph-like, DUX4, PAX5alt, etc.). Compares expression-derived classifications with clinical cytogenetics/FISH data to identify discordant cases that may have been misclassified.</div>
+    <div class="detail-grid">
+      <div class="detail-box"><div class="detail-label">Software</div><div class="detail-val"><span class="tool-tag">R (custom classifiers)</span></div></div>
+      <div class="detail-box"><div class="detail-label">Output</div><div class="detail-val">Subtype assignments, concordance with clinical labels, confusion matrix</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================= REPORTING ============================= -->
+<div class="subworkflow-section" id="reporting">
+  <div class="subworkflow-header">
+    <span class="sw-badge rep">Final</span>
+    <h2>Reporting</h2>
+  </div>
+
+  <div class="module-card">
+    <h3>MULTIQC</h3>
+    <div class="question">Can we see all QC metrics in one interactive report?</div>
+    <div class="desc">Aggregates QC outputs from samtools, RSeQC, Picard, featureCounts, and other tools into a single interactive HTML report with per-sample and cross-sample comparisons.</div>
+    <div class="detail-grid">
+      <div class="detail-box"><div class="detail-label">Software</div><div class="detail-val"><span class="tool-tag">MultiQC</span></div></div>
+      <div class="detail-box"><div class="detail-label">Output</div><div class="detail-val">multiqc_report.html</div></div>
+    </div>
+  </div>
+
+  <div class="module-card">
+    <h3>GENERATE_REPORT</h3>
+    <div class="question">What are the key findings across all analyses?</div>
+    <div class="desc">Integrates results from all subworkflows into a unified summary report. Collects .findings.md files from individual processes and compiles them with overall statistics, key plots, and actionable summaries.</div>
+    <div class="detail-grid">
+      <div class="detail-box"><div class="detail-label">Software</div><div class="detail-val"><span class="tool-tag">Custom</span></div></div>
+      <div class="detail-box"><div class="detail-label">Output</div><div class="detail-val">Integrated pipeline report</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================= TWO VERSIONS ============================= -->
+<div class="subworkflow-section" id="versions">
+  <div class="subworkflow-header">
+    <span class="sw-badge rep">Info</span>
+    <h2>Two Pipeline Versions</h2>
+  </div>
+
+  <div class="module-card">
+    <h3>Nextflow DSL2 Pipeline (Primary)</h3>
+    <div class="desc">The main pipeline using Nextflow's channel-based dataflow. Handles dependency resolution automatically, supports Docker/Singularity containers per process, has built-in resume on failure (<code>-resume</code>), and generates execution reports.</div>
+    <div class="detail-grid">
+      <div class="detail-box"><div class="detail-label">Config files</div><div class="detail-val"><code>nextflow.config</code>, <code>conf/containers.config</code>, <code>conf/modules.config</code></div></div>
+      <div class="detail-box"><div class="detail-label">Run command</div><div class="detail-val"><code>nextflow run main.nf --input samplesheet.csv --fasta ref.fa --gtf genes.gtf -profile docker</code></div></div>
+    </div>
+  </div>
+
+  <div class="module-card">
+    <h3>SBATCH Version (HPC Alternative)</h3>
+    <div class="desc">Standalone SLURM batch scripts mirroring the same analyses. Uses individual <code>sbatch</code> scripts with explicit <code>--dependency=afterok</code> chains. For HPC environments without Nextflow/containers, or when you want to run/debug individual steps manually.</div>
+    <div class="detail-grid">
+      <div class="detail-box"><div class="detail-label">Config</div><div class="detail-val"><code>SBATCH_Version/config.sh</code> (shared paths, params, helpers)</div></div>
+      <div class="detail-box"><div class="detail-label">Run command</div><div class="detail-val"><code>./SBATCH_Version/submit_all.sh</code> or individual <code>sbatch</code> calls</div></div>
+    </div>
+  </div>
+
+  <div style="background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 1.3rem 1.5rem; margin-top: 1rem;">
+    <table class="sample-table">
+      <tr>
+        <th>Feature</th><th>Nextflow</th><th>SBATCH</th>
+      </tr>
+      <tr><td>Auto-resume on failure</td><td>Yes (<code>-resume</code>)</td><td>No (manual re-submit)</td></tr>
+      <tr><td>Containers</td><td>Docker / Singularity per process</td><td>Load modules / conda</td></tr>
+      <tr><td>Dependencies</td><td>Implicit via channels</td><td>Explicit <code>--dependency=afterok</code></td></tr>
+      <tr><td>Parallelism</td><td>Automatic</td><td>Manual via array jobs</td></tr>
+      <tr><td>Portability</td><td>Any system with Nextflow</td><td>SLURM clusters only</td></tr>
+    </table>
+  </div>
+</div>
+
+</div>
+
+<!-- ============================= FOOTER ============================= -->
+<div class="footer">
+  Cancer Bulk RNA-Seq Pipeline with Ancestry Integration &middot; Pediatric B-ALL<br>
+  Reference generated June 2026
+</div>
+
+</body>
+</html>
