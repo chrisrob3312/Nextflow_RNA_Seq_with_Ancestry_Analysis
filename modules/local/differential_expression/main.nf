@@ -22,7 +22,7 @@ process DESEQ2_DE {
     path "versions.yml",       emit: versions
 
     script:
-    def covariates = params.de_covariates ?: 'batch,sex,age,tumor_purity'
+    def covariates = params.de_covariates ?: 'batch,sex,age,blast_percentage'
     def subgroups  = params.cytomolecular_subgroups ?: ''
     """
     mkdir -p deseq2_results deseq2_plots deseq2_rds
@@ -64,7 +64,7 @@ process LIMMA_VOOM_DE {
     path "versions.yml",    emit: versions
 
     script:
-    def covariates = params.de_covariates ?: 'batch,sex,age,tumor_purity'
+    def covariates = params.de_covariates ?: 'batch,sex,age,blast_percentage'
     def subgroups  = params.cytomolecular_subgroups ?: ''
     """
     mkdir -p limma_results limma_plots limma_rds

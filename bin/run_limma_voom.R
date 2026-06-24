@@ -19,7 +19,7 @@ option_list <- list(
     make_option("--metadata", type = "character", help = "Sample metadata TSV"),
     make_option("--ancestry", type = "character", help = "Ancestry proportions TSV"),
     make_option("--contrasts", type = "character", help = "Contrasts JSON file"),
-    make_option("--covariates", type = "character", default = "batch,sex,age,tumor_purity"),
+    make_option("--covariates", type = "character", default = "batch,sex,age,blast_percentage"),
     make_option("--cytomolecular-subgroups", type = "character", default = ""),
     make_option("--padj-threshold", type = "double", default = 0.05),
     make_option("--lfc-threshold", type = "double", default = 0.585),

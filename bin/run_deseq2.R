@@ -23,7 +23,7 @@ option_list <- list(
     make_option("--metadata", type = "character", help = "Sample metadata TSV"),
     make_option("--ancestry", type = "character", help = "Ancestry proportions TSV"),
     make_option("--contrasts", type = "character", help = "Contrasts JSON file"),
-    make_option("--covariates", type = "character", default = "batch,sex,age,tumor_purity",
+    make_option("--covariates", type = "character", default = "batch,sex,age,blast_percentage",
                 help = "Comma-separated covariate names for model"),
     make_option("--cytomolecular-subgroups", type = "character", default = "",
                 help = "Comma-separated cytomolecular subgroups for within-group analysis"),
