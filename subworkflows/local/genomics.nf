@@ -17,6 +17,8 @@ include { GATK_APPLYBQSR         } from '../../modules/local/variant_calling/mai
 include { GATK_HAPLOTYPECALLER   } from '../../modules/local/variant_calling/main'
 include { GATK_VARIANTFILTRATION } from '../../modules/local/variant_calling/main'
 include { TMB_ESTIMATION         } from '../../modules/local/variant_calling/main'
+include { CHASMPLUS              } from '../../modules/local/variant_calling/main'
+include { CREATE_MAF             } from '../../modules/local/variant_calling/main'
 include { ARCASHLA_EXTRACT       } from '../../modules/local/hla_typing/main'
 include { ARCASHLA_GENOTYPE      } from '../../modules/local/hla_typing/main'
 include { ARCASHLA_MERGE         } from '../../modules/local/hla_typing/main'
@@ -143,6 +145,16 @@ workflow GENOMICS {
         )
         ch_versions = ch_versions.mix(GATK_VARIANTFILTRATION.out.versions.first())
 
+        // CHASMplus driver mutation analysis
+        if (params.run_chasmplus) {
+            CHASMPLUS(GATK_VARIANTFILTRATION.out.vcf, params.fasta)
+        }
+
+        // Create MAF for maftools analysis
+        if (params.run_maftools) {
+            CREATE_MAF(GATK_VARIANTFILTRATION.out.vcf, params.fasta, params.gtf)
+        }
+
         // TMB estimation
         ch_metadata_file = ch_bam_bai
             .map { meta, bam, bai -> meta }
@@ -183,6 +195,8 @@ workflow GENOMICS {
     ancestry_pca         = params.run_ancestry ? ANCESTRY_INFERENCE.out.pca : Channel.empty()
     filtered_vcf         = params.run_variant_calling ? GATK_VARIANTFILTRATION.out.vcf : Channel.empty()
     tmb_scores           = params.run_variant_calling ? TMB_ESTIMATION.out.tmb : Channel.empty()
+    chasmplus_results    = params.run_variant_calling && params.run_chasmplus ? CHASMPLUS.out.results : Channel.empty()
+    maf                  = params.run_variant_calling && params.run_maftools ? CREATE_MAF.out.maf : Channel.empty()
     hla_types            = params.run_hla && (params.hla_tool == 'arcashla' || params.hla_tool == 'both') ? ARCASHLA_GENOTYPE.out.genotype : Channel.empty()
     hla_merged           = params.run_hla && (params.hla_tool == 'arcashla' || params.hla_tool == 'both') ? ARCASHLA_MERGE.out.merged : Channel.empty()
     findings             = ch_findings

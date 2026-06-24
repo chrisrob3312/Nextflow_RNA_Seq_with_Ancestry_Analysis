@@ -6,8 +6,12 @@
 */
 
 include { SENSITIVITY_ANALYSIS } from '../../modules/local/sensitivity/main'
-include { PHARMACOGENOMICS     } from '../../modules/local/pharmacogenomics/main'
-include { MOLECULAR_SUBTYPING  } from '../../modules/local/molecular_subtyping/main'
+include { PHARMACOGENOMICS         } from '../../modules/local/pharmacogenomics/main'
+include { OCTAD_ANALYSIS           } from '../../modules/local/pharmacogenomics/main'
+include { PHARMACOGX_ANALYSIS      } from '../../modules/local/pharmacogenomics/main'
+include { DREAM_DRUGGABILITY       } from '../../modules/local/pharmacogenomics/main'
+include { SIGNATURESEARCH_ANALYSIS } from '../../modules/local/pharmacogenomics/main'
+include { MOLECULAR_SUBTYPING     } from '../../modules/local/molecular_subtyping/main'
 
 workflow CLINICAL_ANALYSIS {
 
@@ -59,6 +63,29 @@ workflow CLINICAL_ANALYSIS {
             ch_ancestry
         )
         ch_versions = ch_versions.mix(PHARMACOGENOMICS.out.versions)
+    }
+
+    // ========================================
+    // EXTENDED PHARMACOGENOMICS
+    // ========================================
+    if (params.run_octad) {
+        OCTAD_ANALYSIS(ch_de_results, ch_normalized_counts, ch_metadata_file)
+        ch_versions = ch_versions.mix(OCTAD_ANALYSIS.out.versions)
+    }
+
+    if (params.run_pharmacogx) {
+        PHARMACOGX_ANALYSIS(ch_normalized_counts, ch_metadata_file, ch_ancestry)
+        ch_versions = ch_versions.mix(PHARMACOGX_ANALYSIS.out.versions)
+    }
+
+    if (params.run_dream) {
+        DREAM_DRUGGABILITY(ch_de_results, ch_normalized_counts)
+        ch_versions = ch_versions.mix(DREAM_DRUGGABILITY.out.versions)
+    }
+
+    if (params.run_signaturesearch) {
+        SIGNATURESEARCH_ANALYSIS(ch_de_results)
+        ch_versions = ch_versions.mix(SIGNATURESEARCH_ANALYSIS.out.versions)
     }
 
     // ========================================

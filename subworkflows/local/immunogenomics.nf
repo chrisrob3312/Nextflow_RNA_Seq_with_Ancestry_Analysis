@@ -12,6 +12,10 @@ include { PVACSEQ                   } from '../../modules/local/neoantigen/main'
 include { NEOFUSE                   } from '../../modules/local/neoantigen/main'
 include { SNAF_SPLICING_NEOANTIGENS } from '../../modules/local/neoantigen/main'
 include { MERGE_NEOANTIGENS         } from '../../modules/local/neoantigen/main'
+include { TELESCOPE_HERV            } from '../../modules/local/neoantigen/main'
+include { HERVQUANT                 } from '../../modules/local/neoantigen/main'
+include { NEOANTIGEN_BURDEN_ANALYSIS } from '../../modules/local/neoantigen/main'
+include { ANTIGEN_DB_CROSSREF       } from '../../modules/local/neoantigen/main'
 include { TRUST4                    } from '../../modules/local/tcr_repertoire/main'
 include { MERGE_TCR_REPORTS         } from '../../modules/local/tcr_repertoire/main'
 
@@ -25,6 +29,7 @@ workflow IMMUNOGENOMICS {
     ch_hla_types         // channel: [ val(meta), path(hla_json) ]
     ch_fusions           // channel: [ val(meta), path(fusions) ]
     ch_metadata          // channel: val(metadata_list) collected
+    ch_ancestry          // channel: path(ancestry_proportions)
 
     main:
     ch_versions  = Channel.empty()
@@ -97,6 +102,39 @@ workflow IMMUNOGENOMICS {
             )
             ch_versions = ch_versions.mix(SNAF_SPLICING_NEOANTIGENS.out.versions.first())
             ch_findings = ch_findings.mix(SNAF_SPLICING_NEOANTIGENS.out.findings)
+        }
+    }
+
+    // ========================================
+    // HERV ANALYSIS
+    // ========================================
+    if (params.herv_annotation) {
+        TELESCOPE_HERV(ch_bam_bai, Channel.fromPath(params.herv_annotation).first())
+        ch_versions = ch_versions.mix(TELESCOPE_HERV.out.versions.first())
+    }
+
+    if (params.hervquant_ref) {
+        HERVQUANT(ch_bam_bai, Channel.fromPath(params.hervquant_ref).first())
+        ch_versions = ch_versions.mix(HERVQUANT.out.versions.first())
+    }
+
+    // ========================================
+    // NEOANTIGEN BURDEN & ANTIGEN CROSSREF
+    // ========================================
+    if (params.run_neoantigen && params.run_variant_calling && params.run_hla) {
+        NEOANTIGEN_BURDEN_ANALYSIS(
+            ch_findings.collect(),
+            ch_metadata_file,
+            ch_ancestry
+        )
+        ch_versions = ch_versions.mix(NEOANTIGEN_BURDEN_ANALYSIS.out.versions)
+
+        if (params.antigen_db) {
+            ANTIGEN_DB_CROSSREF(
+                ch_findings.collect(),
+                Channel.fromPath(params.antigen_db).first()
+            )
+            ch_versions = ch_versions.mix(ANTIGEN_DB_CROSSREF.out.versions)
         }
     }
 
