@@ -469,6 +469,178 @@ process NEOANTIGEN_BURDEN_ANALYSIS {
         }
     }
 
+    # =========================================================================
+    # NESTED STRATIFICATION: MRD-positive relapse vs non-relapse + ancestry
+    # (Comparator analysis — mirrors MRD-negative analysis above)
+    # =========================================================================
+    if ("mrd_status" %in% names(burden) && "relapse_status" %in% names(burden)) {
+        mrd_pos <- burden[mrd_status == "positive" & !is.na(relapse_status)]
+        cat(sprintf("MRD-positive subset: %d samples\\n", nrow(mrd_pos)))
+
+        if (nrow(mrd_pos) >= 4 && length(unique(mrd_pos\$relapse_status)) >= 2) {
+            dir.create("neoantigen_burden/mrd_pos_stratified", recursive = TRUE, showWarnings = FALSE)
+
+            # --- Relapse vs non-relapse within MRD-positive ---
+            sink("neoantigen_burden/mrd_pos_stratified/relapse_within_mrd_pos.txt")
+            cat("=== Neoantigen Burden: Relapse vs Non-relapse WITHIN MRD-Positive ===\\n\\n")
+            for (bcol in burden_cols) {
+                if (sum(!is.na(mrd_pos[[bcol]])) >= 4) {
+                    wt <- tryCatch(wilcox.test(as.formula(paste(bcol, "~ relapse_status")), data = mrd_pos),
+                                   error = function(e) NULL)
+                    cat(sprintf("--- %s ---\\n", bcol))
+                    for (grp in unique(mrd_pos\$relapse_status)) {
+                        vals <- mrd_pos[relapse_status == grp][[bcol]]
+                        cat(sprintf("  %s: median=%.1f, mean=%.1f, n=%d\\n", grp, median(vals, na.rm=TRUE), mean(vals, na.rm=TRUE), length(vals)))
+                    }
+                    if (!is.null(wt)) cat(sprintf("  Wilcoxon p-value: %.4e\\n\\n", wt\$p.value))
+                }
+            }
+            sink()
+
+            p_mrdp_rel <- ggplot(mrd_pos, aes(x = relapse_status, y = total_neoantigens, fill = relapse_status)) +
+                geom_boxplot(outlier.shape = NA) + geom_jitter(width = 0.2, alpha = 0.5) +
+                labs(title = "MRD-Positive: Neoantigen Burden by Relapse", x = "", y = "Total Neoantigens") +
+                theme_bw() + theme(legend.position = "none")
+            ggsave("neoantigen_burden/mrd_pos_stratified/mrd_pos_burden_by_relapse.pdf", p_mrdp_rel, width = 6, height = 5)
+
+            # Faceted by neoantigen type
+            mrd_pos_long <- melt(mrd_pos, id.vars = c("sample_id", "relapse_status"),
+                                 measure.vars = burden_cols, variable.name = "neoantigen_type", value.name = "count")
+            mrd_pos_long[, neoantigen_type := gsub("_neoantigens", "", neoantigen_type)]
+
+            p_mrdp_type <- ggplot(mrd_pos_long, aes(x = relapse_status, y = count, fill = relapse_status)) +
+                geom_boxplot(outlier.shape = NA) + geom_jitter(width = 0.2, alpha = 0.5) +
+                facet_wrap(~neoantigen_type, scales = "free_y") +
+                labs(title = "MRD-Positive: Neoantigen Types by Relapse", x = "", y = "Count") +
+                theme_bw() + theme(legend.position = "none")
+            ggsave("neoantigen_burden/mrd_pos_stratified/mrd_pos_types_by_relapse.pdf", p_mrdp_type, width = 10, height = 8)
+
+            # Ancestry within MRD-positive
+            if ("graf_category" %in% names(mrd_pos) && length(unique(na.omit(mrd_pos\$graf_category))) >= 2) {
+                for (rel_grp in unique(mrd_pos\$relapse_status)) {
+                    sub <- mrd_pos[relapse_status == rel_grp & !is.na(graf_category)]
+                    if (nrow(sub) >= 4 && length(unique(sub\$graf_category)) >= 2) {
+                        sink(sprintf("neoantigen_burden/mrd_pos_stratified/ancestry_in_mrd_pos_%s.txt", rel_grp))
+                        cat(sprintf("=== Ancestry x Neoantigen Burden: MRD-Pos / %s ===\\n\\n", rel_grp))
+                        for (bcol in burden_cols) {
+                            kt <- tryCatch(kruskal.test(as.formula(paste(bcol, "~ graf_category")), data = sub),
+                                           error = function(e) NULL)
+                            cat(sprintf("--- %s ---\\n", bcol))
+                            for (grp in unique(sub\$graf_category)) {
+                                vals <- sub[graf_category == grp][[bcol]]
+                                cat(sprintf("  %s: median=%.1f, n=%d\\n", grp, median(vals, na.rm=TRUE), length(vals)))
+                            }
+                            if (!is.null(kt)) cat(sprintf("  Kruskal-Wallis p: %.4e\\n\\n", kt\$p.value))
+                        }
+                        sink()
+                    }
+                }
+
+                p_anc_pos <- ggplot(mrd_pos[!is.na(graf_category)],
+                                    aes(x = graf_category, y = total_neoantigens, fill = graf_category)) +
+                    geom_boxplot(outlier.shape = NA) + geom_jitter(width = 0.2, alpha = 0.5) +
+                    facet_wrap(~relapse_status) +
+                    labs(title = "MRD-Pos: Neoantigen Burden by Ancestry & Relapse", x = "", y = "Total Neoantigens") +
+                    theme_bw() + theme(axis.text.x = element_text(angle = 45, hjust = 1), legend.position = "none")
+                ggsave("neoantigen_burden/mrd_pos_stratified/mrd_pos_ancestry_by_relapse.pdf", p_anc_pos, width = 10, height = 5)
+            }
+
+            # Ancestry proportion correlations within MRD-positive
+            if (length(anc_prop_cols) > 0) {
+                cor_results_pos <- list()
+                for (rel_grp in unique(mrd_pos\$relapse_status)) {
+                    sub <- mrd_pos[relapse_status == rel_grp]
+                    if (nrow(sub) >= 5) {
+                        for (acol in anc_prop_cols) {
+                            if (sum(!is.na(sub[[acol]])) >= 5) {
+                                for (bcol in burden_cols) {
+                                    ct <- tryCatch(cor.test(sub[[acol]], sub[[bcol]], method = "spearman", exact = FALSE),
+                                                   error = function(e) NULL)
+                                    if (!is.null(ct)) {
+                                        cor_results_pos[[length(cor_results_pos) + 1]] <- data.table(
+                                            stratum = paste0("MRD_pos_", rel_grp),
+                                            ancestry_variable = acol,
+                                            neoantigen_type = bcol,
+                                            spearman_rho = ct\$estimate,
+                                            p_value = ct\$p.value,
+                                            n = nrow(sub)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                if (length(cor_results_pos) > 0) {
+                    cor_dt_pos <- rbindlist(cor_results_pos)
+                    cor_dt_pos[, padj := p.adjust(p_value, method = "BH")]
+                    cor_dt_pos <- cor_dt_pos[order(padj)]
+                    fwrite(cor_dt_pos, "neoantigen_burden/mrd_pos_stratified/ancestry_proportion_correlations.tsv", sep = "\\t")
+                }
+            }
+        }
+    }
+
+    # =========================================================================
+    # CROSS-STRATUM COMPARISON: Overall vs MRD-neg vs MRD-pos by ancestry
+    # =========================================================================
+    if ("graf_category" %in% names(burden) && "mrd_status" %in% names(burden)) {
+        dir.create("neoantigen_burden/cross_stratum", recursive = TRUE, showWarnings = FALSE)
+
+        # Build a summary table across strata
+        strata <- list(
+            list(label = "All_B-ALL", data = burden[!is.na(graf_category)]),
+            list(label = "MRD_negative", data = burden[mrd_status == "negative" & !is.na(graf_category)]),
+            list(label = "MRD_positive", data = burden[mrd_status == "positive" & !is.na(graf_category)])
+        )
+
+        cross_summary <- list()
+        for (s in strata) {
+            d <- s\$data
+            if (nrow(d) >= 4 && length(unique(d\$graf_category)) >= 2) {
+                for (bcol in burden_cols) {
+                    kt <- tryCatch(kruskal.test(as.formula(paste(bcol, "~ graf_category")), data = d),
+                                   error = function(e) NULL)
+                    for (grp in unique(d\$graf_category)) {
+                        vals <- d[graf_category == grp][[bcol]]
+                        cross_summary[[length(cross_summary) + 1]] <- data.table(
+                            stratum = s\$label,
+                            ancestry = grp,
+                            neoantigen_type = bcol,
+                            median = median(vals, na.rm = TRUE),
+                            mean = mean(vals, na.rm = TRUE),
+                            n = length(vals),
+                            kruskal_p = if (!is.null(kt)) kt\$p.value else NA_real_
+                        )
+                    }
+                }
+            }
+        }
+        if (length(cross_summary) > 0) {
+            cross_dt <- rbindlist(cross_summary)
+            fwrite(cross_dt, "neoantigen_burden/cross_stratum/ancestry_burden_comparison.tsv", sep = "\\t")
+        }
+
+        # Side-by-side boxplot: all strata together
+        burden[, mrd_group := fifelse(is.na(mrd_status), "Unknown",
+                              fifelse(mrd_status == "negative", "MRD-neg", "MRD-pos"))]
+        burden_strata <- rbind(
+            burden[!is.na(graf_category), .(sample_id, graf_category, total_neoantigens, stratum = "All B-ALL")],
+            burden[!is.na(graf_category) & mrd_status == "negative", .(sample_id, graf_category, total_neoantigens, stratum = "MRD-negative")],
+            burden[!is.na(graf_category) & mrd_status == "positive", .(sample_id, graf_category, total_neoantigens, stratum = "MRD-positive")]
+        )
+        if (nrow(burden_strata) > 0) {
+            burden_strata[, stratum := factor(stratum, levels = c("All B-ALL", "MRD-negative", "MRD-positive"))]
+            p_cross <- ggplot(burden_strata, aes(x = graf_category, y = total_neoantigens, fill = graf_category)) +
+                geom_boxplot(outlier.shape = NA) + geom_jitter(width = 0.2, alpha = 0.4, size = 1) +
+                facet_wrap(~stratum) +
+                labs(title = "Neoantigen Burden by Ancestry: Overall vs MRD Strata",
+                     x = "", y = "Total Neoantigens") +
+                theme_bw() + theme(axis.text.x = element_text(angle = 45, hjust = 1), legend.position = "none")
+            ggsave("neoantigen_burden/cross_stratum/ancestry_burden_all_strata.pdf", p_cross, width = 14, height = 5)
+        }
+    }
+
     # --- Per-source breakdown stacked bar ---
     burden_long <- melt(burden, id.vars = "sample_id",
                         measure.vars = c("snv_neoantigens", "fusion_neoantigens", "splicing_neoantigens"),
@@ -488,7 +660,7 @@ process NEOANTIGEN_BURDEN_ANALYSIS {
     cat <<-FINDINGS > neoantigen_burden.findings.md
     ## Neoantigen Burden Analysis
     - Samples analyzed: \$(tail -n +2 neoantigen_burden/neoantigen_burden_annotated.tsv | wc -l)
-    - Stratified by: relapse status, MRD status, ancestry, MRD-neg nested strata
+    - Stratified by: relapse status, MRD status, ancestry, MRD-neg nested strata, MRD-pos nested strata, cross-stratum comparison
     FINDINGS
     """
 }

@@ -143,7 +143,10 @@ for (i in seq_along(contrasts_list)) {
     contrast <- contrasts_list[[i]]
     cat("\n==== Running limma contrast:", contrast$name, "====\n")
 
-    result <- run_limma_contrast(counts, metadata, contrast, covariate_names)
+    subset_var <- contrast$subset_variable
+    subset_val <- contrast$subset_value
+    result <- run_limma_contrast(counts, metadata, contrast, covariate_names,
+                                 subset_var = subset_var, subset_val = subset_val)
     if (is.null(result)) next
 
     tt <- topTable(result$fit, number = Inf, sort.by = "P")

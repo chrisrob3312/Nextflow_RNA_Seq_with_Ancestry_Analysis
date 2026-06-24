@@ -158,9 +158,10 @@ run_deseq2_contrast <- function(counts, metadata, contrast, covariates, subset_v
         formula_str <- paste("~", paste(c(covar_in_model, var_name), collapse = " + "))
     }
 
-    # Convert numeric covariates
+    # Convert covariates to appropriate types
+    numeric_covariates <- c("age", "tumor_purity", "blast_percentage")
     for (cov in covar_in_model) {
-        if (cov %in% c("age", "tumor_purity", "blast_percentage")) {
+        if (cov %in% numeric_covariates) {
             meta[[cov]] <- as.numeric(meta[[cov]])
         } else {
             meta[[cov]] <- as.factor(meta[[cov]])
@@ -221,7 +222,11 @@ for (i in seq_along(contrasts)) {
     contrast <- contrasts[[i]]
     cat("\n==== Running contrast:", contrast$name, "====\n")
 
-    result <- run_deseq2_contrast(counts, metadata, contrast, covariate_names)
+    # Handle subset_variable / subset_value for stratified analyses (e.g., MRD-neg only)
+    subset_var <- contrast$subset_variable
+    subset_val <- contrast$subset_value
+    result <- run_deseq2_contrast(counts, metadata, contrast, covariate_names,
+                                  subset_var = subset_var, subset_val = subset_val)
 
     if (is.null(result)) next
 

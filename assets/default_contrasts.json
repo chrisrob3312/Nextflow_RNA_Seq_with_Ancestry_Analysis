@@ -5,7 +5,7 @@
         "type": "categorical",
         "reference": "no_relapse",
         "target": "relapse",
-        "description": "Differential expression: relapse vs. non-relapse samples"
+        "description": "Differential expression: relapse vs. non-relapse samples (all B-ALL)"
     },
     {
         "name": "adi_q1_vs_rest",
@@ -59,5 +59,67 @@
         "reference": "diagnostic",
         "target": "relapse",
         "description": "Relapse timepoint vs. diagnostic samples (paired when available)"
+    },
+    {
+        "name": "mrd_neg_relapse_vs_no_relapse",
+        "variable": "relapse_status",
+        "type": "categorical",
+        "reference": "no_relapse",
+        "target": "relapse",
+        "subset_variable": "mrd_status",
+        "subset_value": "negative",
+        "description": "Relapse vs non-relapse WITHIN MRD-negative patients (key clinical question)"
+    },
+    {
+        "name": "mrd_pos_relapse_vs_no_relapse",
+        "variable": "relapse_status",
+        "type": "categorical",
+        "reference": "no_relapse",
+        "target": "relapse",
+        "subset_variable": "mrd_status",
+        "subset_value": "positive",
+        "description": "Relapse vs non-relapse WITHIN MRD-positive patients (comparator)"
+    },
+    {
+        "name": "mrd_neg_pct_african",
+        "variable": "pct_african",
+        "type": "continuous",
+        "subset_variable": "mrd_status",
+        "subset_value": "negative",
+        "description": "African ancestry proportion effect WITHIN MRD-negative patients"
+    },
+    {
+        "name": "mrd_neg_pct_amerindigenous",
+        "variable": "pct_amerindigenous",
+        "type": "continuous",
+        "subset_variable": "mrd_status",
+        "subset_value": "negative",
+        "description": "Amerindigenous ancestry proportion effect WITHIN MRD-negative patients"
+    },
+    {
+        "name": "mrd_neg_graf_category",
+        "variable": "graf_category",
+        "type": "categorical_multi",
+        "reference": "EUR",
+        "subset_variable": "mrd_status",
+        "subset_value": "negative",
+        "description": "Ancestry category effect WITHIN MRD-negative patients"
+    },
+    {
+        "name": "mrd_pos_pct_african",
+        "variable": "pct_african",
+        "type": "continuous",
+        "subset_variable": "mrd_status",
+        "subset_value": "positive",
+        "description": "African ancestry proportion effect WITHIN MRD-positive patients"
+    },
+    {
+        "name": "mrd_pos_graf_category",
+        "variable": "graf_category",
+        "type": "categorical_multi",
+        "reference": "EUR",
+        "subset_variable": "mrd_status",
+        "subset_value": "positive",
+        "description": "Ancestry category effect WITHIN MRD-positive patients"
     }
 ]
