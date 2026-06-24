@@ -19,7 +19,9 @@ option_list <- list(
     make_option("--metadata", type = "character", help = "Sample metadata TSV"),
     make_option("--ancestry", type = "character", help = "Ancestry proportions TSV"),
     make_option("--contrasts", type = "character", help = "Contrasts JSON file"),
-    make_option("--covariates", type = "character", default = "batch,sex,age,blast_percentage"),
+    make_option("--tumor-purity", type = "character", default = NULL,
+                help = "TSV with sample_id and tumor_purity from ESTIMATE"),
+    make_option("--covariates", type = "character", default = "batch,sex,age,tumor_purity"),
     make_option("--cytomolecular-subgroups", type = "character", default = ""),
     make_option("--padj-threshold", type = "double", default = 0.05),
     make_option("--lfc-threshold", type = "double", default = 0.585),
@@ -40,6 +42,14 @@ if (!is.null(opt$ancestry) && file.exists(opt$ancestry)) {
     common <- intersect(rownames(metadata), rownames(ancestry))
     ancestry_cols <- setdiff(colnames(ancestry), "sample_id")
     metadata[common, ancestry_cols] <- ancestry[common, ancestry_cols]
+}
+
+if (!is.null(opt$`tumor-purity`) && file.exists(opt$`tumor-purity`)) {
+    purity <- read.delim(opt$`tumor-purity`, check.names = FALSE)
+    rownames(purity) <- purity$sample_id
+    common_pur <- intersect(rownames(metadata), rownames(purity))
+    metadata[common_pur, "tumor_purity"] <- purity[common_pur, "tumor_purity"]
+    cat("Merged ESTIMATE tumor purity for", length(common_pur), "samples\n")
 }
 
 common_samples <- intersect(colnames(counts), rownames(metadata))

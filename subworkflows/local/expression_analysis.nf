@@ -5,8 +5,9 @@
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
-include { DESEQ2_DE          } from '../../modules/local/differential_expression/main'
-include { LIMMA_VOOM_DE      } from '../../modules/local/differential_expression/main'
+include { ESTIMATE_TUMOR_PURITY } from '../../modules/local/differential_expression/main'
+include { DESEQ2_DE             } from '../../modules/local/differential_expression/main'
+include { LIMMA_VOOM_DE         } from '../../modules/local/differential_expression/main'
 include { WGCNA_ANALYSIS     } from '../../modules/local/wgcna/main'
 include { PATHWAY_ENRICHMENT } from '../../modules/local/pathway_enrichment/main'
 include { GSVA_ANALYSIS      } from '../../modules/local/pathway_enrichment/main'
@@ -41,6 +42,11 @@ workflow EXPRESSION_ANALYSIS {
         : Channel.fromPath("${projectDir}/assets/default_contrasts.json").first()
 
     // ========================================
+    // ESTIMATE TUMOR PURITY (data-derived, runs before DE)
+    // ========================================
+    ESTIMATE_TUMOR_PURITY(ch_normalized_counts)
+
+    // ========================================
     // DIFFERENTIAL EXPRESSION
     // ========================================
     if (params.run_de) {
@@ -49,7 +55,8 @@ workflow EXPRESSION_ANALYSIS {
                 ch_count_matrix,
                 ch_metadata_file,
                 ch_ancestry,
-                ch_contrasts
+                ch_contrasts,
+                ESTIMATE_TUMOR_PURITY.out.purity
             )
             ch_versions = ch_versions.mix(DESEQ2_DE.out.versions)
         }
@@ -59,7 +66,8 @@ workflow EXPRESSION_ANALYSIS {
                 ch_count_matrix,
                 ch_metadata_file,
                 ch_ancestry,
-                ch_contrasts
+                ch_contrasts,
+                ESTIMATE_TUMOR_PURITY.out.purity
             )
             ch_versions = ch_versions.mix(LIMMA_VOOM_DE.out.versions)
         }
@@ -100,6 +108,7 @@ workflow EXPRESSION_ANALYSIS {
     }
 
     emit:
+    tumor_purity    = ESTIMATE_TUMOR_PURITY.out.purity
     de_results      = params.run_de && (params.de_tool == 'deseq2' || params.de_tool == 'both') ? DESEQ2_DE.out.results : (params.run_de && params.de_tool == 'limma' ? LIMMA_VOOM_DE.out.results : Channel.empty())
     wgcna_modules   = params.run_wgcna ? WGCNA_ANALYSIS.out.results : Channel.empty()
     pathway_results = params.run_pathway ? PATHWAY_ENRICHMENT.out.results : Channel.empty()

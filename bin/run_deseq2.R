@@ -23,7 +23,9 @@ option_list <- list(
     make_option("--metadata", type = "character", help = "Sample metadata TSV"),
     make_option("--ancestry", type = "character", help = "Ancestry proportions TSV"),
     make_option("--contrasts", type = "character", help = "Contrasts JSON file"),
-    make_option("--covariates", type = "character", default = "batch,sex,age,blast_percentage",
+    make_option("--tumor-purity", type = "character", default = NULL,
+                help = "TSV with sample_id and tumor_purity from ESTIMATE"),
+    make_option("--covariates", type = "character", default = "batch,sex,age,tumor_purity",
                 help = "Comma-separated covariate names for model"),
     make_option("--cytomolecular-subgroups", type = "character", default = "",
                 help = "Comma-separated cytomolecular subgroups for within-group analysis"),
@@ -48,6 +50,15 @@ if (!is.null(opt$ancestry) && file.exists(opt$ancestry)) {
     common_samples <- intersect(rownames(metadata), rownames(ancestry))
     ancestry_cols <- setdiff(colnames(ancestry), "sample_id")
     metadata[common_samples, ancestry_cols] <- ancestry[common_samples, ancestry_cols]
+}
+
+# Load ESTIMATE tumor purity and merge
+if (!is.null(opt$`tumor-purity`) && file.exists(opt$`tumor-purity`)) {
+    purity <- read.delim(opt$`tumor-purity`, check.names = FALSE)
+    rownames(purity) <- purity$sample_id
+    common_pur <- intersect(rownames(metadata), rownames(purity))
+    metadata[common_pur, "tumor_purity"] <- purity[common_pur, "tumor_purity"]
+    cat("Merged ESTIMATE tumor purity for", length(common_pur), "samples\n")
 }
 
 # Align samples
